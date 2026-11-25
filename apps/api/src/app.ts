@@ -2,6 +2,7 @@ import cors from 'cors';
 import express, { type Router } from 'express';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
+import type { Db } from './db/client.js';
 import type { Logger } from './lib/logger.js';
 import { errorHandler, notFoundHandler } from './http/middleware/errorHandler.js';
 import { idempotency } from './http/middleware/idempotency.js';
@@ -13,6 +14,8 @@ export interface AppOptions {
   version: string;
   corsOrigin: string;
   healthChecks: Record<string, HealthCheck>;
+  /** Needed for idempotency. Tests that don't touch the database can leave it out. */
+  db?: Db;
   /** Extra routers mounted under /api/v1, keyed by path. Feature phases add theirs here. */
   routers?: Record<string, Router>;
 }
@@ -42,7 +45,7 @@ export function createApp(options: AppOptions) {
 
   const api = express.Router();
   api.use('/health', healthRouter(options.version, options.healthChecks));
-  api.use(idempotency());
+  if (options.db) api.use(idempotency(options.db));
   for (const [path, router] of Object.entries(options.routers ?? {})) {
     api.use(path, router);
   }

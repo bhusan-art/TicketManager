@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     include: ['test/**/*.test.ts'],
     environment: 'node',
-    // Tests that need MongoDB share one database, so run files one at a time.
+    // Tests that need PostgreSQL share one database, so run files one at a time.
     fileParallelism: false,
     testTimeout: 15_000,
   },

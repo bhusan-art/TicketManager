@@ -8,9 +8,8 @@ type State =
   | { kind: 'error'; message: string };
 
 const LABELS: Record<string, string> = {
-  mongo: 'Database',
+  database: 'Database',
   redis: 'Job queue',
-  storage: 'File storage',
 };
 
 export function Dashboard() {

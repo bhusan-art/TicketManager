@@ -1,14 +1,16 @@
-import { Types } from 'mongoose';
+import { randomUUID } from 'node:crypto';
+import { eq } from 'drizzle-orm';
 import { expect, it } from 'vitest';
-import { AuditLog, recordAudit } from '../src/audit/audit.js';
+import { recordAudit } from '../src/audit/audit.js';
+import { auditLog } from '../src/db/schema.js';
 import { describeWithDb, useTestDb } from './helpers.js';
 
 describeWithDb('audit log', () => {
-  useTestDb();
+  const t = useTestDb();
 
   it('records an entry with actor, entity and change', async () => {
-    const actorId = new Types.ObjectId();
-    const entry = await recordAudit({
+    const actorId = randomUUID();
+    const entry = await recordAudit(t.db, {
       action: 'voucher.approved',
       entityType: 'voucher',
       entityId: 'EXP-2026-00001',
@@ -18,23 +20,34 @@ describeWithDb('audit log', () => {
       after: { status: 'manager_approved' },
     });
 
-    const stored = await AuditLog.findById(entry._id).lean();
+    const [stored] = await t.db.select().from(auditLog).where(eq(auditLog.id, entry.id));
     expect(stored).toMatchObject({
       action: 'voucher.approved',
       entityType: 'voucher',
       entityId: 'EXP-2026-00001',
+      actorId,
       actorRole: 'manager',
       after: { status: 'manager_approved' },
     });
-    expect(String(stored!.actorId)).toBe(String(actorId));
+  });
+
+  it('is written inside a transaction and rolled back with it', async () => {
+    await expect(
+      t.db.transaction(async (tx) => {
+        await recordAudit(tx, { action: 'x.created', entityType: 'x' });
+        throw new Error('change failed');
+      }),
+    ).rejects.toThrow('change failed');
+    expect(await t.db.$count(auditLog)).toBe(0);
   });
 
   it('cannot be edited or deleted', async () => {
-    const entry = await recordAudit({ action: 'x.created', entityType: 'x' });
-    await expect(AuditLog.updateOne({ _id: entry._id }, { action: 'tampered' })).rejects.toThrow(
-      /append-only/,
-    );
-    await expect(AuditLog.deleteOne({ _id: entry._id })).rejects.toThrow(/append-only/);
-    expect(await AuditLog.countDocuments()).toBe(1);
+    const entry = await recordAudit(t.db, { action: 'x.created', entityType: 'x' });
+    await expect(
+      t.db.update(auditLog).set({ action: 'tampered' }).where(eq(auditLog.id, entry.id)),
+    ).rejects.toThrow();
+    await expect(t.db.delete(auditLog).where(eq(auditLog.id, entry.id))).rejects.toThrow();
+    const [stored] = await t.db.select().from(auditLog);
+    expect(stored!.action).toBe('x.created');
   });
 });

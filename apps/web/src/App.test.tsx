@@ -18,7 +18,7 @@ describe('App shell', () => {
       status: 'ok',
       version: '0.1.0',
       uptimeSeconds: 3,
-      checks: { mongo: 'up', redis: 'up', storage: 'up' },
+      checks: { database: 'up', redis: 'up' },
     });
     render(
       <MemoryRouter>
@@ -35,7 +35,7 @@ describe('App shell', () => {
       status: 'degraded',
       version: '0.1.0',
       uptimeSeconds: 3,
-      checks: { mongo: 'up', storage: 'down' },
+      checks: { database: 'up', redis: 'down' },
     });
     render(
       <MemoryRouter>

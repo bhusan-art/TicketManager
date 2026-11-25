@@ -78,3 +78,19 @@ describe('error responses', () => {
     expect(res.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
   });
 });
+
+describe('database errors', () => {
+  const dbRouter = Router();
+  dbRouter.get('/unique', () => {
+    throw Object.assign(new Error('Failed query'), {
+      cause: Object.assign(new Error('duplicate key'), { code: '23505' }),
+    });
+  });
+  const dbApp = testApp({ routers: { '/db': dbRouter } });
+
+  it('maps a unique violation (even when wrapped) to 409', async () => {
+    const res = await request(dbApp).get('/api/v1/db/unique');
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('CONFLICT');
+  });
+});
