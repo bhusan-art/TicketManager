@@ -1,46 +1,48 @@
-import type { Model, QueryFilter } from 'mongoose';
+import { asc, desc, type SQL } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { buildPageMeta, type Paginated, type PaginationQuery } from '@ticketmanager/shared';
 import { AppError } from './errors.js';
 
-export interface PaginateOptions {
-  /** Fields a caller may sort on. Anything else is rejected with 400. */
-  sortable: readonly string[];
-  /** Used when the caller gives no sort. Defaults to newest first. */
-  defaultSort?: string;
-  projection?: Record<string, 0 | 1>;
+export interface PageRequest {
+  orderBy: SQL[];
+  limit: number;
+  offset: number;
 }
 
-function toMongoSort(sort: string): Record<string, 1 | -1> {
-  const desc = sort.startsWith('-');
-  const field = desc ? sort.slice(1) : sort;
-  // _id as a tiebreaker keeps page boundaries stable when values repeat.
-  return field === '_id' ? { _id: desc ? -1 : 1 } : { [field]: desc ? -1 : 1, _id: desc ? -1 : 1 };
+export interface PaginateOptions<T> {
+  query: PaginationQuery;
+  /** Fields a caller may sort on, mapped to their columns. Anything else is rejected with 400. */
+  sortable: Record<string, AnyPgColumn>;
+  /** Used when the caller gives no sort, e.g. '-createdAt'. */
+  defaultSort: string;
+  /** Added after the chosen sort so page boundaries stay stable when values repeat. */
+  tiebreaker: AnyPgColumn;
+  /** Runs the page query with the given ordering, limit and offset. */
+  fetch: (page: PageRequest) => Promise<T[]>;
+  /** Counts all matching rows (same filter, no limit). */
+  count: () => Promise<number>;
 }
 
 /** Offset pagination for list endpoints. Returns `{ data, meta }`. */
-export async function paginate<T>(
-  model: Model<T>,
-  filter: QueryFilter<T>,
-  query: PaginationQuery,
-  options: PaginateOptions,
-): Promise<Paginated<T>> {
-  const sort = query.sort ?? options.defaultSort ?? '-createdAt';
-  const field = sort.replace(/^-/, '');
-  if (field !== '_id' && !options.sortable.includes(field)) {
+export async function paginate<T>(options: PaginateOptions<T>): Promise<Paginated<T>> {
+  const { query } = options;
+  const sort = query.sort ?? options.defaultSort;
+  const descending = sort.startsWith('-');
+  const field = descending ? sort.slice(1) : sort;
+  const column = options.sortable[field];
+  if (!column) {
     throw new AppError('VALIDATION_FAILED', `Cannot sort by "${field}"`, {
-      sortable: options.sortable,
+      sortable: Object.keys(options.sortable),
     });
   }
-  const skip = (query.page - 1) * query.pageSize;
+  const dir = descending ? desc : asc;
   const [data, total] = await Promise.all([
-    model
-      .find(filter, options.projection)
-      .sort(toMongoSort(sort))
-      .skip(skip)
-      .limit(query.pageSize)
-      .lean<T[]>()
-      .exec(),
-    model.countDocuments(filter).exec(),
+    options.fetch({
+      orderBy: [dir(column), dir(options.tiebreaker)],
+      limit: query.pageSize,
+      offset: (query.page - 1) * query.pageSize,
+    }),
+    options.count(),
   ]);
   return { data, meta: buildPageMeta(query.page, query.pageSize, total) };
 }

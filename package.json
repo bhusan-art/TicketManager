@@ -21,7 +21,7 @@
     "dev:api": "npm run dev -w apps/api",
     "dev:worker": "npm run dev -w apps/worker",
     "dev:web": "npm run dev -w apps/web",
-    "services:up": "docker compose up -d mongo redis storage mailpit"
+    "services:up": "docker compose up -d postgres redis mailpit"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",

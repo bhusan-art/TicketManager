@@ -4,17 +4,17 @@ import { testApp } from './helpers.js';
 
 describe('health', () => {
   it('reports ok when every dependency is up', async () => {
-    const app = testApp({ healthChecks: { mongo: async () => true, redis: async () => true } });
+    const app = testApp({ healthChecks: { database: async () => true, redis: async () => true } });
     const res = await request(app).get('/api/v1/health');
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ status: 'ok', checks: { mongo: 'up', redis: 'up' } });
+    expect(res.body).toMatchObject({ status: 'ok', checks: { database: 'up', redis: 'up' } });
   });
 
   it('reports degraded with 503 when a dependency fails', async () => {
     const app = testApp({
       healthChecks: {
-        mongo: async () => true,
-        storage: async () => {
+        database: async () => true,
+        redis: async () => {
           throw new Error('unreachable');
         },
       },
@@ -23,7 +23,7 @@ describe('health', () => {
     expect(res.status).toBe(503);
     expect(res.body).toMatchObject({
       status: 'degraded',
-      checks: { mongo: 'up', storage: 'down' },
+      checks: { database: 'up', redis: 'down' },
     });
   });
 

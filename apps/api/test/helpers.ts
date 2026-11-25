@@ -1,6 +1,7 @@
-import mongoose from 'mongoose';
+import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe } from 'vitest';
 import { createApp, type AppOptions } from '../src/app.js';
+import { createDb, runMigrations, type Db } from '../src/db/client.js';
 import { createLogger } from '../src/lib/logger.js';
 
 export function testApp(overrides: Partial<AppOptions> = {}) {
@@ -14,29 +15,47 @@ export function testApp(overrides: Partial<AppOptions> = {}) {
 }
 
 /**
- * Tests that need MongoDB use MONGO_URL_TEST (CI and `docker compose` both provide one).
+ * Tests that need PostgreSQL use DATABASE_URL_TEST (CI provides one).
  * Without it they are skipped locally; CI sets REQUIRE_DB_TESTS=1 so they can never be skipped there.
+ * The test database is wiped, so never point this at real data.
  */
-const MONGO_URL_TEST = process.env.MONGO_URL_TEST;
-if (!MONGO_URL_TEST && process.env.REQUIRE_DB_TESTS) {
-  throw new Error('MONGO_URL_TEST must be set when REQUIRE_DB_TESTS is set');
+const DATABASE_URL_TEST = process.env.DATABASE_URL_TEST;
+if (!DATABASE_URL_TEST && process.env.REQUIRE_DB_TESTS) {
+  throw new Error('DATABASE_URL_TEST must be set when REQUIRE_DB_TESTS is set');
 }
 
-export const describeWithDb = describe.skipIf(!MONGO_URL_TEST);
+export const describeWithDb = describe.skipIf(!DATABASE_URL_TEST);
 
+/** Gives each test file a freshly migrated database and empties every table before each test. */
 export function useTestDb() {
+  let handle: ReturnType<typeof createDb> | undefined;
+
   beforeAll(async () => {
-    await mongoose.connect(MONGO_URL_TEST!, { serverSelectionTimeoutMS: 5000 });
-    await mongoose.connection.dropDatabase();
-    await Promise.all(Object.values(mongoose.models).map((m) => m.init()));
+    handle = createDb(DATABASE_URL_TEST!);
+    await handle.db.execute(sql`drop schema if exists public cascade`);
+    await handle.db.execute(sql`drop schema if exists drizzle cascade`);
+    await handle.db.execute(sql`create schema public`);
+    await runMigrations(handle.db);
   });
+
   beforeEach(async () => {
-    const db = mongoose.connection.db!;
-    const collections = await db.collections();
-    await Promise.all(collections.map((c) => c.deleteMany({})));
+    await handle!.db.execute(sql`
+      do $$ declare t text;
+      begin
+        for t in select tablename from pg_tables where schemaname = 'public' loop
+          execute format('truncate table %I restart identity cascade', t);
+        end loop;
+      end $$;
+    `);
   });
+
   afterAll(async () => {
-    await mongoose.connection.dropDatabase();
-    await mongoose.disconnect();
+    await handle?.pool.end();
   });
+
+  return {
+    get db(): Db {
+      return handle!.db;
+    },
+  };
 }

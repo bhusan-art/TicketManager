@@ -18,17 +18,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
-      mongo:
-        image: mongo:8.0
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ticketmanager
+          POSTGRES_PASSWORD: ticketmanager
+          POSTGRES_DB: ticketmanager_test
         ports:
-          - 27017:27017
+          - 5432:5432
         options: >-
-          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
+          --health-cmd "pg_isready -U ticketmanager"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
     env:
-      MONGO_URL_TEST: mongodb://localhost:27017/ticketmanager_test
+      DATABASE_URL_TEST: postgres://ticketmanager:ticketmanager@localhost:5432/ticketmanager_test
       REQUIRE_DB_TESTS: '1'
     steps:
       - uses: actions/checkout@v5
@@ -42,6 +46,8 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: Migrations match the schema
+        run: npm run db:check -w apps/api
 
   compose:
     name: Docker Compose smoke test

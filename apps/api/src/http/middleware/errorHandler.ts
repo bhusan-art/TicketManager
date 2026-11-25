@@ -1,7 +1,7 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import type { ApiErrorBody } from '@ticketmanager/shared';
-import mongoose from 'mongoose';
 import { ZodError } from 'zod';
+import { pgErrorCode } from '../../db/client.js';
 import { AppError } from '../errors.js';
 
 export const notFoundHandler: RequestHandler = (req, _res, next) => {
@@ -17,18 +17,13 @@ function toAppError(err: unknown): AppError {
       err.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
     );
   }
-  if (err instanceof mongoose.Error.ValidationError) {
-    return new AppError(
-      'VALIDATION_FAILED',
-      'Request validation failed',
-      Object.values(err.errors).map((e) => ({ path: e.path, message: e.message })),
-    );
-  }
-  if (err instanceof mongoose.Error.CastError) {
-    return new AppError('VALIDATION_FAILED', `Invalid value for ${err.path}`);
-  }
-  if (typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 11000) {
-    return new AppError('CONFLICT', 'A record with the same unique value already exists');
+  switch (pgErrorCode(err)) {
+    case '23505':
+      return new AppError('CONFLICT', 'A record with the same unique value already exists');
+    case '23503':
+      return new AppError('VALIDATION_FAILED', 'A referenced record does not exist');
+    case '22P02':
+      return new AppError('VALIDATION_FAILED', 'A value has the wrong format');
   }
   // Malformed JSON bodies from express.json()
   if (
