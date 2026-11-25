@@ -1,0 +1,134 @@
+# TicketManager: the whole stack on one machine.
+#   cp .env.example .env    (then change the secrets)
+#   docker compose up -d --build
+# App: http://localhost:8080   Mail catcher: http://localhost:8025
+
+name: ticketmanager
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  mongo:
+    image: mongo:8.0
+    <<: *restart
+    command: ['--replSet', 'rs0', '--bind_ip_all']
+    volumes:
+      - mongo-data:/data/db
+    # Starts the single-node replica set on first boot (needed for transactions).
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }).ok }"
+      interval: 5s
+      timeout: 10s
+      start_period: 20s
+      retries: 20
+    ports:
+      - '127.0.0.1:27017:27017'
+
+  redis:
+    image: redis:7.4-alpine
+    <<: *restart
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      - '127.0.0.1:6379:6379'
+
+  # S3-compatible file storage for receipts and exports (SeaweedFS).
+  storage:
+    image: chrislusf/seaweedfs:3.97
+    <<: *restart
+    entrypoint: ['/bin/sh', '/seaweedfs-entrypoint.sh']
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-ticketmanager}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-ticketmanager-secret}
+    volumes:
+      - ./docker/seaweedfs-entrypoint.sh:/seaweedfs-entrypoint.sh:ro
+      - storage-data:/data
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8333/healthz']
+      interval: 5s
+      timeout: 3s
+      start_period: 40s
+      retries: 20
+    ports:
+      - '127.0.0.1:8333:8333'
+
+  # Catches every email in development. In production, point SMTP_* at a real mailbox instead.
+  mailpit:
+    image: axllent/mailpit:v1.27
+    <<: *restart
+    ports:
+      - '127.0.0.1:8025:8025'
+      - '127.0.0.1:1025:1025'
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    <<: *restart
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      APP_VERSION: ${APP_VERSION:-0.1.0}
+      CORS_ORIGIN: ${PUBLIC_URL:-http://localhost:8080}
+      MONGO_URL: mongodb://mongo:27017/ticketmanager?replicaSet=rs0
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://storage:8333
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-ticketmanager}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-ticketmanager-secret}
+      S3_BUCKET: ${S3_BUCKET:-ticketmanager}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      storage:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    <<: *restart
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      REDIS_URL: redis://redis:6379
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-TicketManager <no-reply@ticketmanager.local>}
+    depends_on:
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    <<: *restart
+    ports:
+      - '${WEB_PORT:-8080}:80'
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  mongo-data:
+  redis-data:
+  storage-data:
