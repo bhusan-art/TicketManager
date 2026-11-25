@@ -1,0 +1,25 @@
+{
+  "name": "@ticketmanager/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ticketmanager/shared": "*",
+    "bullmq": "^6.7.0",
+    "nodemailer": "^10.6.0",
+    "pino": "^10.4.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^8.0.0",
+    "tsx": "^4.23.0"
+  }
+}
