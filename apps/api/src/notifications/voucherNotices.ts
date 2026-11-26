@@ -162,7 +162,10 @@ export async function notifyVoucherEvent(db: DbOrTx, e: NewVoucherEvent, eventId
       await send(
         {
           title: `Question on ${num}`,
-          body: `${actor} asked a question about ${cc.length ? `${employeeName}'s` : 'your'} claim${purpose}. Answer it from the claim.`,
+          body: (r) =>
+            r.userId === v.employeeId
+              ? `${actor} asked a question about your claim${purpose}. Answer it from the claim.`
+              : `${actor} asked ${employeeName} a question about their claim${purpose}. You are copied.`,
         },
         [owner],
         cc,

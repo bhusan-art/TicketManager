@@ -14,8 +14,8 @@ export interface Recipient {
 export interface Notice {
   /** Short line, also the email subject: "EXP-2026-00012 needs your approval". */
   title: string;
-  /** A sentence or two: who did what. */
-  body: string;
+  /** A sentence or two: who did what. A function when it reads differently per recipient. */
+  body: string | ((r: Recipient) => string);
   /** What the actor wrote (query, reason, comment), quoted under the body. */
   message?: string | null;
   entityType: NotificationEntity;
@@ -69,13 +69,14 @@ export async function notify(
   const everyone = [...primary, ...copied];
   if (everyone.length === 0) return;
 
-  const inAppBody = notice.message ? `${notice.body}\n“${notice.message}”` : notice.body;
+  const bodyFor = (r: Recipient) =>
+    typeof notice.body === 'function' ? notice.body(r) : notice.body;
   await tx.insert(notifications).values(
     everyone.map((r) => ({
       userId: r.userId,
       role: r.role,
       title: notice.title,
-      body: inAppBody,
+      body: notice.message ? `${bodyFor(r)}\n“${notice.message}”` : bodyFor(r),
       link: notice.link(r),
       entityType: notice.entityType,
       entityId: notice.entityId,
@@ -115,7 +116,7 @@ export async function notify(
       to: person.email,
       cc: ccEmails,
       subject: notice.title,
-      text: `Hi ${person.name},\n\n${notice.body}${quoted}`,
+      text: `Hi ${person.name},\n\n${bodyFor(r)}${quoted}`,
       link: notice.link(r),
     });
   }

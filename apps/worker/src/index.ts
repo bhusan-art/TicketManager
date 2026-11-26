@@ -16,6 +16,10 @@ const transport = nodemailer.createTransport({
   port: config.SMTP_PORT,
   secure: config.SMTP_SECURE,
   auth: config.SMTP_USER ? { user: config.SMTP_USER, pass: config.SMTP_PASSWORD } : undefined,
+  // Fail fast when the mail server is unreachable, so one bad send doesn't hold up the rest.
+  connectionTimeout: 15_000,
+  greetingTimeout: 15_000,
+  socketTimeout: 30_000,
 });
 
 // Emails jobs queued by an older API carry the email itself; finish those directly.

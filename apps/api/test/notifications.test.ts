@@ -165,10 +165,16 @@ describeWithDb('notifications, emails and follow-ups', () => {
       subject: `Question on ${v.number}`,
     });
     expect(mail[0]!.text).toContain('> Which client?');
+    expect(mail[0]!.text).toContain(
+      'Neha Joshi asked a question about your claim for Client visit.',
+    );
     expect((await inbox('manager')).at(-1)).toMatchObject({
       title: `Question on ${v.number}`,
       link: `/approvals/${v.id}`,
     });
+    expect((await inbox('manager')).at(-1)!.body).toContain(
+      'Neha Joshi asked Rahul Das a question about their claim for Client visit. You are copied.',
+    );
     expect((await inbox('employee')).at(-1)!.body).toContain('“Which client?”');
 
     await as.employee.post(`/vouchers/${v.id}/answer`, {

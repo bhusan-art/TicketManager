@@ -61,7 +61,7 @@ export function FollowUp<T>({
     <form className="card wide follow-up" onSubmit={send} noValidate>
       <div className="follow-up-head">
         <div>
-          <strong>Waiting on {state.waitingOn}</strong>
+          <strong>Remind {state.waitingOn}</strong>
           <span className="muted small">
             {state.canSend
               ? `Send a reminder if it is taking too long. You can send one every ${state.cooldownHours} hours.`

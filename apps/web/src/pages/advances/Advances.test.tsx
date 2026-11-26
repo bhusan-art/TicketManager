@@ -232,7 +232,7 @@ describe('Advances', () => {
       }),
     });
     renderApp('/advances/a1');
-    expect(await screen.findByText('Waiting on Amit Verma')).toBeInTheDocument();
+    expect(await screen.findByText('Remind Amit Verma')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Send reminder' }));
     await userEvent.type(screen.getByLabelText('Note (optional)'), 'Trip is on Monday');
     await userEvent.click(screen.getByRole('button', { name: 'Send reminder to Amit Verma' }));
@@ -267,6 +267,6 @@ describe('Advances', () => {
     });
     renderApp('/advances/a1');
     expect(await screen.findByText('ADV-2026-00001', { selector: 'h1' })).toBeInTheDocument();
-    expect(screen.queryByText('Waiting on Amit Verma')).not.toBeInTheDocument();
+    expect(screen.queryByText('Remind Amit Verma')).not.toBeInTheDocument();
   });
 });
