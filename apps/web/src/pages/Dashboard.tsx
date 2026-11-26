@@ -1,6 +1,8 @@
 import type { HealthResponse } from '@ticketmanager/shared';
 import { useEffect, useState } from 'react';
-import { apiGet } from '../lib/api';
+import { ROLE_LABELS } from '@ticketmanager/shared';
+import { useUser } from '../auth/AuthContext';
+import { getHealth } from '../lib/api';
 
 type State =
   | { kind: 'loading' }
@@ -12,12 +14,19 @@ const LABELS: Record<string, string> = {
   redis: 'Job queue',
 };
 
+function greeting(hour: number) {
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
 export function Dashboard() {
+  const user = useUser();
   const [state, setState] = useState<State>({ kind: 'loading' });
 
   useEffect(() => {
     let active = true;
-    apiGet<HealthResponse>('/health')
+    getHealth<HealthResponse>()
       .then((health) => active && setState({ kind: 'loaded', health }))
       .catch((err: Error) => active && setState({ kind: 'error', message: err.message }));
     return () => {
@@ -27,8 +36,13 @@ export function Dashboard() {
 
   return (
     <section>
-      <h1>Dashboard</h1>
-      <p className="muted">Phase 0: the app shell is running. Features arrive in later phases.</p>
+      <h1>
+        {greeting(new Date().getHours())}, {user.name.split(' ')[0]}
+      </h1>
+      <p className="muted">
+        You are viewing TicketManager as {ROLE_LABELS[user.activeRole]}. Expense claims arrive in
+        Phase 2.
+      </p>
 
       <div className="card" aria-live="polite">
         <h2>System status</h2>

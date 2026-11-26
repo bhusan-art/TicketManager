@@ -16,12 +16,16 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1177.0",
+    "@node-rs/argon2": "^2.2.2",
     "@ticketmanager/shared": "*",
+    "bullmq": "^6.7.10",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "drizzle-orm": "^0.45.4",
     "express": "^5.3.0",
     "helmet": "^8.3.0",
     "ioredis": "^6.1.0",
+    "jose": "^6.2.18",
     "mongoose": "^9.13.0",
     "pg": "^8.23.1",
     "pino": "^10.4.0",
@@ -29,6 +33,7 @@
     "zod": "^4.1.0"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/pg": "^8.23.1",

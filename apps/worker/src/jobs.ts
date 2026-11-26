@@ -1,18 +1,8 @@
 import type { Job } from 'bullmq';
 import type { Transporter } from 'nodemailer';
-import { z } from 'zod';
+import { emailJobSchema, QUEUES } from '@ticketmanager/shared';
 
-/** Queue names shared with the API, which adds jobs. */
-export const QUEUES = { email: 'email', system: 'system' } as const;
-
-export const emailJobSchema = z.object({
-  to: z.union([z.email(), z.array(z.email()).min(1)]),
-  cc: z.array(z.email()).optional(),
-  subject: z.string().min(1),
-  text: z.string().min(1),
-  html: z.string().optional(),
-});
-export type EmailJob = z.infer<typeof emailJobSchema>;
+export { QUEUES };
 
 /** Sends one email. BullMQ retries with backoff when this throws. */
 export function makeEmailProcessor(transport: Transporter, from: string) {

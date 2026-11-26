@@ -1,0 +1,103 @@
+import type { AuthUser, Role, SessionResponse } from '@ticketmanager/shared';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { apiPost, refreshSession, setAccessToken, setSignedOutHandler } from '../lib/api';
+
+type Status = 'loading' | 'signed-in' | 'signed-out';
+
+interface AuthState {
+  status: Status;
+  user: AuthUser | null;
+  signIn(email: string, password: string): Promise<void>;
+  signOut(): Promise<void>;
+  switchRole(role: Role): Promise<void>;
+  /** Re-reads the user after a change (e.g. password set). */
+  reload(): Promise<void>;
+}
+
+const AuthContext = createContext<AuthState | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [status, setStatus] = useState<Status>('loading');
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const restored = useRef(false);
+
+  const apply = useCallback((session: SessionResponse | null) => {
+    setAccessToken(session?.accessToken ?? null);
+    setUser(session?.user ?? null);
+    setStatus(session ? 'signed-in' : 'signed-out');
+  }, []);
+
+  useEffect(() => {
+    setSignedOutHandler(() => apply(null));
+    // Restore the session from the refresh cookie, unless the user signs in first.
+    let settled = false;
+    refreshSession().then(
+      (session) => {
+        if (!settled && !restored.current) apply(session);
+      },
+      () => {
+        if (!settled && !restored.current) apply(null);
+      },
+    );
+    return () => {
+      settled = true;
+    };
+  }, [apply]);
+
+  // Refresh a minute before the access token expires.
+  useEffect(() => {
+    if (status !== 'signed-in') return;
+    const timer = setInterval(() => refreshSession().then((s) => s ?? apply(null)), 13 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, [status, apply]);
+
+  const value = useMemo<AuthState>(
+    () => ({
+      status,
+      user,
+      async signIn(email, password) {
+        const session = await apiPost<SessionResponse>('/auth/login', { email, password });
+        restored.current = true;
+        apply(session);
+      },
+      async signOut() {
+        try {
+          await apiPost('/auth/logout');
+        } finally {
+          apply(null);
+        }
+      },
+      async switchRole(role) {
+        apply(await apiPost<SessionResponse>('/auth/switch-role', { role }));
+      },
+      async reload() {
+        apply(await refreshSession());
+      },
+    }),
+    [status, user, apply],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
+  return ctx;
+}
+
+/** The signed-in user. Only use under a route that requires sign-in. */
+export function useUser() {
+  const { user } = useAuth();
+  if (!user) throw new Error('useUser needs a signed-in user');
+  return user;
+}

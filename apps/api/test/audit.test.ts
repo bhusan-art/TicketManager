@@ -1,15 +1,14 @@
-import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { expect, it } from 'vitest';
 import { recordAudit } from '../src/audit/audit.js';
 import { auditLog } from '../src/db/schema.js';
-import { describeWithDb, useTestDb } from './helpers.js';
+import { describeWithDb, makeUser, useTestDb } from './helpers.js';
 
 describeWithDb('audit log', () => {
   const t = useTestDb();
 
   it('records an entry with actor, entity and change', async () => {
-    const actorId = randomUUID();
+    const actorId = (await makeUser(t.db)).id;
     const entry = await recordAudit(t.db, {
       action: 'voucher.approved',
       entityType: 'voucher',

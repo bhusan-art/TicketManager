@@ -1,3 +1,12 @@
+import type { Role } from '@ticketmanager/shared';
+import request from 'supertest';
+import { createAccessTokens } from '../src/auth/accessToken.js';
+import { hashPassword } from '../src/auth/crypto.js';
+import type { GoogleClient, GoogleIdentity } from '../src/auth/google.js';
+import { loadConfig } from '../src/config.js';
+import { users } from '../src/db/schema.js';
+import { createMemoryMailer } from '../src/mail/mailer.js';
+import type { Services } from '../src/services.js';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe } from 'vitest';
 import { createApp, type AppOptions } from '../src/app.js';
@@ -59,3 +68,74 @@ export function useTestDb() {
     },
   };
 }
+
+// ---- Auth helpers ----
+
+export const TEST_PASSWORD = 'Expense#2026';
+
+export function fakeGoogle(identity: () => GoogleIdentity | Error): GoogleClient {
+  return {
+    authUrl: ({ state }) => `https://accounts.google.test/auth?state=${state}`,
+    exchange: async () => {
+      const result = identity();
+      if (result instanceof Error) throw result;
+      return result;
+    },
+  };
+}
+
+export function testServices(db: Db, overrides: Partial<Services> = {}) {
+  const mailer = createMemoryMailer();
+  const config = loadConfig({ NODE_ENV: 'test', PUBLIC_URL: 'http://localhost:9080' });
+  const services: Services = {
+    db,
+    config,
+    mailer,
+    tokens: createAccessTokens(config.JWT_SECRET, config.ACCESS_TOKEN_MINUTES),
+    google: null,
+    ...overrides,
+  };
+  return { services, mailer, app: testApp({ services }) };
+}
+
+let counter = 0;
+const passwordHash = hashPassword(TEST_PASSWORD);
+
+export async function makeUser(
+  db: Db,
+  fields: Partial<typeof users.$inferInsert> & { roles?: Role[]; password?: string | null } = {},
+) {
+  counter += 1;
+  const { password, ...rest } = fields;
+  const [row] = await db
+    .insert(users)
+    .values({
+      email: `user${counter}@example.com`,
+      name: `User ${counter}`,
+      roles: ['employee'],
+      passwordHash:
+        password === null ? null : password ? await hashPassword(password) : await passwordHash,
+      ...rest,
+    })
+    .returning();
+  return row!;
+}
+
+/** Signs in and returns the access token and refresh cookie. */
+export async function signIn(
+  app: Parameters<typeof request>[0],
+  email: string,
+  password = TEST_PASSWORD,
+) {
+  const res = await request(app).post('/api/v1/auth/login').send({ email, password });
+  if (res.status !== 200)
+    throw new Error(`Sign-in failed: ${res.status} ${JSON.stringify(res.body)}`);
+  const cookie = ([] as string[]).concat(res.headers['set-cookie'] ?? []);
+  return {
+    token: res.body.accessToken as string,
+    cookie: cookie.map((c) => c.split(';')[0]!).join('; '),
+    user: res.body.user,
+  };
+}
+
+export const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
