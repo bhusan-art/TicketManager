@@ -22,6 +22,8 @@ export interface WorkflowVoucher {
   number: string | null;
   submittedAt: Date | string | null;
   accountsReviewStartedAt: Date | string | null;
+  approvedTotalPaise?: number | null;
+  paidPaise?: number;
 }
 
 type Caller = Pick<AuthContext, 'userId' | 'activeRole'>;
@@ -69,7 +71,18 @@ export function permissions(caller: Caller, v: WorkflowVoucher): VoucherPermissi
     reject: approver,
     answer: owner && stageOfQuery(v.approvalStatus) !== null,
     comment: canView(caller, v) && v.approvalStatus !== 'draft',
+    pay: canPay(caller, v),
   };
+}
+
+/** Accounts pays approved claims, never their own, and never more than was approved. */
+export function canPay(caller: Caller, v: WorkflowVoucher): boolean {
+  return (
+    caller.activeRole === 'accounts' &&
+    v.employeeId !== caller.userId &&
+    isFinalApproval(v.approvalStatus) &&
+    (v.paidPaise ?? 0) < (v.approvedTotalPaise ?? 0)
+  );
 }
 
 export const can = (caller: Caller, v: WorkflowVoucher, action: VoucherAction) =>

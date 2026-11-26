@@ -46,6 +46,12 @@ function describe(e: VoucherEvent, v: VoucherDetail): string {
       return 'Commented';
     case 'attachment_added':
       return 'Added a bill';
+    case 'payment_recorded': {
+      const amount = formatRupees(Number(e.meta?.amountPaise ?? 0));
+      return e.meta?.status === 'paid' ? `Paid ${amount}, paid in full` : `Paid ${amount}`;
+    }
+    case 'payment_reversed':
+      return `Reversed payment ${String(e.meta?.number ?? '')} of ${formatRupees(Number(e.meta?.amountPaise ?? 0))}`;
   }
 }
 
@@ -57,6 +63,8 @@ const TONE: Partial<Record<VoucherEvent['type'], string>> = {
   returned: 'warn',
   comment: 'quiet',
   attachment_added: 'quiet',
+  payment_recorded: 'good',
+  payment_reversed: 'bad',
 };
 
 /** The voucher's activity: every step and comment, oldest first, with a comment box. */

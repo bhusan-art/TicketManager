@@ -1,4 +1,9 @@
-import { APPROVAL_STATUS_LABELS, type ApprovalStatus } from '@ticketmanager/shared';
+import {
+  APPROVAL_STATUS_LABELS,
+  PAYMENT_STATUS_LABELS,
+  type ApprovalStatus,
+  type PaymentStatus,
+} from '@ticketmanager/shared';
 
 const TONE: Partial<Record<ApprovalStatus, string>> = {
   draft: 'muted-pill',
@@ -53,4 +58,17 @@ export function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+const PAYMENT_TONE: Partial<Record<PaymentStatus, string>> = {
+  not_due: 'muted-pill',
+  paid: 'up',
+};
+
+export function PaymentStatusPill({ status }: { status: PaymentStatus }) {
+  return (
+    <span className={`pill ${PAYMENT_TONE[status] ?? 'pending'}`}>
+      {PAYMENT_STATUS_LABELS[status]}
+    </span>
+  );
 }

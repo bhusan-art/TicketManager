@@ -118,10 +118,19 @@ const ALLOWED: Partial<Record<ApprovalStatus, Partial<Record<CallerName, Voucher
     director: ['comment'],
   },
 };
-// Final statuses: anyone who can see the voucher may still comment, nothing else.
+// Final statuses: anyone who can see the voucher may still comment; Accounts pays approved ones.
+for (const s of ['approved', 'partially_approved'] as const) {
+  ALLOWED[s] = {
+    owner: ['comment'],
+    ownerAsAccounts: ['comment'],
+    ownerAsDirector: ['comment'],
+    managerOfRecord: ['comment'],
+    managerOfRecordAsEmployee: ['comment'],
+    accounts: ['comment', 'pay'],
+    director: ['comment'],
+  };
+}
 for (const s of [
-  'approved',
-  'partially_approved',
   'manager_rejected',
   'accounts_rejected',
   'director_rejected',
@@ -145,6 +154,8 @@ const voucher = (approvalStatus: ApprovalStatus): WorkflowVoucher => ({
   number: approvalStatus === 'draft' ? null : 'EXP-2026-00001',
   submittedAt: approvalStatus === 'draft' ? null : '2026-11-26T10:00:00Z',
   accountsReviewStartedAt: null,
+  approvedTotalPaise: 100_000,
+  paidPaise: 0,
 });
 
 describe('approval permissions', () => {
@@ -175,6 +186,12 @@ describe('approval permissions', () => {
         expect([p.approve, p.query, p.return, p.reject]).toEqual([false, false, false, false]);
       }
     }
+  });
+
+  it('stops paying once the approved total is paid', () => {
+    const v = { ...voucher('approved'), paidPaise: 100_000 };
+    expect(permissions(CALLERS.accounts, v).pay).toBe(false);
+    expect(permissions(CALLERS.accounts, { ...v, paidPaise: 99_999 }).pay).toBe(true);
   });
 
   it('stops cancelling once Accounts has started review', () => {
