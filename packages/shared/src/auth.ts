@@ -56,6 +56,7 @@ export interface AuthUser {
   name: string;
   employeeCode: string | null;
   designation: string | null;
+  whatsappNumber: string | null;
   roles: Role[];
   activeRole: Role;
   department: Ref | null;

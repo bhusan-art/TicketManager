@@ -8,6 +8,7 @@ import {
   type GoogleLoginError,
   type Role,
   type SessionResponse,
+  updateWhatsAppSchema,
 } from '@ticketmanager/shared';
 import { and, eq, ne } from 'drizzle-orm';
 import { Router, type Request, type Response } from 'express';
@@ -192,6 +193,30 @@ export function authRouter(services: Services) {
 
   router.get('/me', requireAuth, async (req, res) => {
     res.json(await getAuthUser(db, req.auth!.userId, req.auth!.activeRole));
+  });
+
+  /** People keep their own WhatsApp number up to date. Returns the updated user. */
+  router.put('/me/whatsapp', requireAuth, async (req, res) => {
+    const { whatsappNumber = null } = parseBody(updateWhatsAppSchema, req);
+    const auth = req.auth!;
+    await db.transaction(async (tx) => {
+      const [before] = await tx
+        .select({ whatsappNumber: users.whatsappNumber })
+        .from(users)
+        .where(eq(users.id, auth.userId));
+      await tx.update(users).set({ whatsappNumber }).where(eq(users.id, auth.userId));
+      await recordAudit(tx, {
+        action: 'user.whatsapp_updated',
+        entityType: 'user',
+        entityId: auth.userId,
+        actorId: auth.userId,
+        actorRole: auth.activeRole,
+        before,
+        after: { whatsappNumber },
+        req,
+      });
+    });
+    res.json(await getAuthUser(db, auth.userId, auth.activeRole));
   });
 
   router.post('/switch-role', requireAuth, async (req, res) => {

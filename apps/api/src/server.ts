@@ -4,6 +4,7 @@ import { createApp } from './app.js';
 import { bootstrapAdmin } from './bootstrap.js';
 import { loadConfig } from './config.js';
 import { createDb, runMigrations } from './db/client.js';
+import { createExportRunner } from './documents/runner.js';
 import { pruneIdempotencyKeys } from './http/middleware/idempotency.js';
 import { checks, createRedis } from './lib/dependencies.js';
 import { createLogger } from './lib/logger.js';
@@ -22,6 +23,8 @@ const waker = createWorkerWaker(config.REDIS_URL, (err) =>
   logger.warn({ err }, 'Could not wake the worker; mail goes out on its next sweep'),
 );
 const mailer = createOutboxMailer(db, waker.wake);
+const exports = createExportRunner(db, (err) => logger.error({ err }, 'Export failed'));
+await exports.resume();
 const google =
   config.GOOGLE_CLIENT_ID && config.GOOGLE_CLIENT_SECRET
     ? createGoogleClient({
@@ -40,6 +43,7 @@ const app = createApp({
     db,
     config,
     mailer,
+    exports,
     google,
     tokens: createAccessTokens(config.JWT_SECRET, config.ACCESS_TOKEN_MINUTES),
   },
@@ -54,10 +58,15 @@ const server = app.listen(config.PORT, () => {
 });
 
 const pruneTimer = setInterval(
-  () =>
+  () => {
     pruneIdempotencyKeys(db).catch((err: unknown) =>
       logger.warn({ err }, 'Pruning idempotency keys failed'),
-    ),
+    );
+    exports
+      .prune()
+      .then((n) => n && logger.info({ expired: n }, 'Deleted expired exports'))
+      .catch((err: unknown) => logger.warn({ err }, 'Pruning exports failed'));
+  },
   60 * 60 * 1000,
 );
 pruneTimer.unref();
@@ -66,6 +75,7 @@ async function shutdown(signal: string) {
   logger.info({ signal }, 'Shutting down');
   clearInterval(pruneTimer);
   server.close();
+  await exports.idle();
   await Promise.allSettled([pool.end(), redis.quit(), waker.close()]);
   process.exit(0);
 }

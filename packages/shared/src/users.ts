@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { emailSchema, type Ref } from './auth.js';
 import { ROLES, type Role } from './roles.js';
+import { whatsappNumberField } from './whatsapp.js';
 
 export const USER_STATUSES = ['active', 'inactive'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
@@ -21,6 +22,8 @@ export const createUserSchema = z.object({
   name: z.string().trim().min(1, 'Enter a name').max(120),
   employeeCode: optionalText(40),
   designation: optionalText(120),
+  /** Mobile number linked to WhatsApp, for click-to-chat messages. */
+  whatsappNumber: whatsappNumberField,
   departmentId: optionalId,
   managerId: optionalId,
   roles: z.array(z.enum(ROLES)).min(1, 'Pick at least one role'),
@@ -48,6 +51,8 @@ export interface UserSummary {
   name: string;
   employeeCode: string | null;
   designation: string | null;
+  /** International digits, e.g. 919876543210. */
+  whatsappNumber: string | null;
   roles: Role[];
   status: UserStatus;
   department: Ref | null;

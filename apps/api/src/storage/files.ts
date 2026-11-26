@@ -29,9 +29,16 @@ const info = {
   createdAt: files.createdAt,
 };
 
-export async function saveFile(db: Pick<Db, 'insert'>, file: NewFile): Promise<StoredFileInfo> {
+/** Uploads are limited to 10 MB; the app's own files (export ZIPs) pass a larger `maxBytes`. */
+export async function saveFile(
+  db: Pick<Db, 'insert'>,
+  file: NewFile,
+  { maxBytes = MAX_FILE_BYTES }: { maxBytes?: number } = {},
+): Promise<StoredFileInfo> {
   if (file.data.length === 0) throw new RangeError('File is empty');
-  if (file.data.length > MAX_FILE_BYTES) throw new RangeError('File is larger than 10 MB');
+  if (file.data.length > maxBytes) {
+    throw new RangeError(`File is larger than ${Math.round(maxBytes / 1024 / 1024)} MB`);
+  }
   const [row] = await db
     .insert(files)
     .values({
@@ -46,12 +53,15 @@ export async function saveFile(db: Pick<Db, 'insert'>, file: NewFile): Promise<S
   return row!;
 }
 
-export async function getFileInfo(db: Db, id: string): Promise<StoredFileInfo | undefined> {
+export async function getFileInfo(
+  db: Pick<Db, 'select'>,
+  id: string,
+): Promise<StoredFileInfo | undefined> {
   const [row] = await db.select(info).from(files).where(eq(files.id, id));
   return row;
 }
 
-export async function readFile(db: Db, id: string) {
+export async function readFile(db: Pick<Db, 'select'>, id: string) {
   const [row] = await db.select().from(files).where(eq(files.id, id));
   return row;
 }

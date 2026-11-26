@@ -25,6 +25,7 @@ import {
   CATEGORY_STATUSES,
   EMAIL_KINDS,
   EMAIL_STATUSES,
+  EXPORT_STATUSES,
   NOTIFICATION_ENTITIES,
   PAYMENT_MODES,
   PAYMENT_STATUSES,
@@ -70,6 +71,8 @@ export const users = pgTable(
     name: text('name').notNull(),
     employeeCode: text('employee_code').unique(),
     designation: text('designation'),
+    /** WhatsApp mobile number as international digits (919876543210). */
+    whatsappNumber: text('whatsapp_number'),
     departmentId: uuid('department_id').references(() => departments.id, {
       onDelete: 'set null',
     }),
@@ -573,4 +576,37 @@ export const emailOutbox = pgTable(
       .where(sql`${t.status} = 'pending'`),
     index('email_outbox_created_idx').on(t.createdAt.desc()),
   ],
+);
+
+/**
+ * Bulk ZIP exports of vouchers. The ZIP itself is a row in `files`; it is deleted when the export
+ * expires, and the job row stays as history.
+ */
+export const exportJobs = pgTable(
+  'export_jobs',
+  {
+    id: pk(),
+    requestedBy: uuid('requested_by')
+      .notNull()
+      .references(() => users.id),
+    /** The active role when it was requested; it decides which vouchers it may contain. */
+    role: text('role', { enum: ROLES }).notNull(),
+    filters: jsonb('filters').notNull(),
+    includeProofs: boolean('include_proofs').notNull().default(true),
+    status: text('status', { enum: EXPORT_STATUSES }).notNull().default('queued'),
+    filename: text('filename').notNull(),
+    voucherCount: integer('voucher_count'),
+    sizeBytes: bigint('size_bytes', { mode: 'number' }),
+    fileId: uuid('file_id').references(() => files.id, { onDelete: 'set null' }),
+    error: text('error'),
+    downloads: integer('downloads').notNull().default(0),
+    /** sha256 of the current shareable link's token; a new link replaces the old one. */
+    linkTokenHash: text('link_token_hash').unique(),
+    linkExpiresAt: tstz('link_expires_at'),
+    startedAt: tstz('started_at'),
+    completedAt: tstz('completed_at'),
+    expiresAt: tstz('expires_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('export_jobs_requested_by_idx').on(t.requestedBy, t.createdAt.desc())],
 );

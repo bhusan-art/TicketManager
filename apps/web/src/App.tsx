@@ -12,7 +12,9 @@ import { Departments } from './pages/admin/Departments';
 import { UserForm } from './pages/admin/UserForm';
 import { Users } from './pages/admin/Users';
 import { ApprovalQueue } from './pages/approvals/ApprovalQueue';
+import { AuditLog } from './pages/audit/AuditLog';
 import { Dashboard } from './pages/Dashboard';
+import { Documents } from './pages/documents/Documents';
 import { PaymentQueue } from './pages/payments/PaymentQueue';
 import { Reports } from './pages/reports/Reports';
 import { MyExpenses } from './pages/expenses/MyExpenses';
@@ -76,6 +78,22 @@ export function App() {
             element={
               <RequireRole roles={['accounts', 'director', 'admin']}>
                 <Reports />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="documents"
+            element={
+              <RequireRole roles={['employee', 'manager', 'accounts', 'director']}>
+                <Documents />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="audit"
+            element={
+              <RequireRole roles={['admin', 'director', 'accounts']}>
+                <AuditLog />
               </RequireRole>
             }
           />

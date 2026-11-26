@@ -38,6 +38,7 @@ export function makeUser(overrides: Partial<AuthUser> = {}): AuthUser {
     name: 'Rahul Das',
     employeeCode: 'EMP-1024',
     designation: 'Engineer',
+    whatsappNumber: null,
     roles: ['employee'],
     activeRole: 'employee',
     department: { id: 'd1', name: 'Engineering' },

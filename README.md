@@ -212,6 +212,28 @@ HTTPS (Google refuses private IP addresses).
 - The worker needs `DATABASE_URL` and `PUBLIC_URL` (for links in emails); Docker Compose sets both.
 - APIs: `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/read`, `GET /notifications/settings`, `GET|POST /vouchers/:id/follow-up`, `GET|POST /advances/:id/follow-up`, `GET /admin/emails`, `POST /admin/emails/:id/retry`, `PUT /admin/settings/notifications`.
 
+## Documents and audit log
+
+- **Single voucher:** on any submitted voucher, **PDF and bills (ZIP)** downloads the voucher PDF and every uploaded bill in one ZIP. Anyone who can see the voucher can download it.
+- **Document centre** (`/documents`): pick dates (submission date), approval and payment status, department (Accounts and Director) or a search, see how many vouchers and bills match, and create a ZIP. Each voucher gets a folder with its PDF and a `proofs/` folder; `manifest.csv` lists every voucher with its amounts and files (it opens in Excel).
+  - What you can export follows your active role: an employee their own claims, a manager their team's, Accounts and the Director every submitted claim. Admins can't export claims. Drafts are never included.
+  - One ZIP holds up to 500 vouchers and 250 MB; narrow the filters for more.
+  - ZIPs are made in the background by the API (one at a time; unfinished ones resume after a restart) and stored in PostgreSQL. **Your exports** shows their progress. ZIPs are deleted after 7 days.
+  - **Copy link** makes a link that downloads the ZIP without signing in for 24 hours, for sending to an auditor. Making a new link stops the old one. Only the person who made an export can download it or make a link.
+  - If the person who asked loses the role before it is made, the export fails instead of running with access they no longer have.
+- **Audit log** (`/audit`, Admin, Director and Accounts): every change, approval, payment, export, download and sign-in, with who did it, in which role, and the before and after values. Filter by date, person, record and action, and download as CSV (up to 10,000 rows; the download is itself logged). Exports log `export.requested`, `export.completed`, `export.downloaded` and `export.link_created`.
+- APIs: `GET /vouchers/:id/zip`, `GET /exports/preview`, `POST /exports`, `GET /exports`, `GET /exports/:id`, `GET /exports/:id/download`, `POST /exports/:id/link`, `GET /exports/download/:token` (no sign-in), `GET /audit`, `GET /audit/facets`, `GET /audit/csv`.
+
+## WhatsApp messages
+
+- The app does not send WhatsApp messages itself. It uses WhatsApp's standard **click to chat** links (`wa.me`): a **Send on WhatsApp** button opens WhatsApp (the app on a phone, WhatsApp Web on a computer) with the person's number and a message already written, and you press Send. No WhatsApp Business account, API key or extra service is needed, and nothing breaks WhatsApp's terms.
+- **The number is saved once.** Admins add it on the user form (**WhatsApp number**), and everyone can add or change their own on **Profile**. A 10-digit Indian mobile (`98765 43210`) gets +91 added; for other countries type the code (`+44 7700 900123`).
+- On a submitted claim or advance, the **Send on WhatsApp** card shows who to message and why:
+  - The employee sees a polite reminder for whoever holds it (the manager, Accounts or the Director).
+  - Approvers and Accounts see a message to the employee that fits the latest step: a question, a return, a rejection, an approval, a payment or a payout.
+  - Each message ends with a link to the claim. People with no number saved are listed so someone can add it.
+- APIs: `GET /vouchers/:id/whatsapp`, `GET /advances/:id/whatsapp`, `PUT /auth/me/whatsapp`.
+
 ## Database
 
 PostgreSQL with [Drizzle ORM](https://orm.drizzle.team). Tables are defined in
