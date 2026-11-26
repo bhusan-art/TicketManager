@@ -152,12 +152,8 @@
           "name": "audit_log_actor_id_users_id_fk",
           "tableFrom": "audit_log",
           "tableTo": "users",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -220,9 +216,7 @@
         "categories_name_unique": {
           "name": "categories_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "name"
-          ]
+          "columns": ["name"]
         }
       },
       "policies": {},
@@ -286,12 +280,8 @@
           "name": "departments_head_id_users_id_fk",
           "tableFrom": "departments",
           "tableTo": "users",
-          "columnsFrom": [
-            "head_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["head_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -301,16 +291,12 @@
         "departments_name_unique": {
           "name": "departments_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "name"
-          ]
+          "columns": ["name"]
         },
         "departments_code_unique": {
           "name": "departments_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code"
-          ]
+          "columns": ["code"]
         }
       },
       "policies": {},
@@ -345,10 +331,7 @@
       "compositePrimaryKeys": {
         "document_counters_kind_year_pk": {
           "name": "document_counters_kind_year_pk",
-          "columns": [
-            "kind",
-            "year"
-          ]
+          "columns": ["kind", "year"]
         }
       },
       "uniqueConstraints": {},
@@ -417,12 +400,8 @@
           "name": "files_uploaded_by_users_id_fk",
           "tableFrom": "files",
           "tableTo": "users",
-          "columnsFrom": [
-            "uploaded_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["uploaded_by"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -570,12 +549,8 @@
           "name": "password_tokens_user_id_users_id_fk",
           "tableFrom": "password_tokens",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -585,9 +560,7 @@
         "password_tokens_token_hash_unique": {
           "name": "password_tokens_token_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         }
       },
       "policies": {},
@@ -704,12 +677,8 @@
           "name": "sessions_user_id_users_id_fk",
           "tableFrom": "sessions",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -719,9 +688,7 @@
         "sessions_token_hash_unique": {
           "name": "sessions_token_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         }
       },
       "policies": {},
@@ -898,12 +865,8 @@
           "name": "users_department_id_departments_id_fk",
           "tableFrom": "users",
           "tableTo": "departments",
-          "columnsFrom": [
-            "department_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["department_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -911,12 +874,8 @@
           "name": "users_manager_id_users_id_fk",
           "tableFrom": "users",
           "tableTo": "users",
-          "columnsFrom": [
-            "manager_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["manager_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -926,16 +885,12 @@
         "users_employee_code_unique": {
           "name": "users_employee_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "employee_code"
-          ]
+          "columns": ["employee_code"]
         },
         "users_google_sub_unique": {
           "name": "users_google_sub_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "google_sub"
-          ]
+          "columns": ["google_sub"]
         }
       },
       "policies": {},
@@ -1010,12 +965,8 @@
           "name": "voucher_attachments_voucher_id_vouchers_id_fk",
           "tableFrom": "voucher_attachments",
           "tableTo": "vouchers",
-          "columnsFrom": [
-            "voucher_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voucher_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1023,12 +974,8 @@
           "name": "voucher_attachments_line_id_voucher_lines_id_fk",
           "tableFrom": "voucher_attachments",
           "tableTo": "voucher_lines",
-          "columnsFrom": [
-            "line_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["line_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1036,12 +983,8 @@
           "name": "voucher_attachments_file_id_files_id_fk",
           "tableFrom": "voucher_attachments",
           "tableTo": "files",
-          "columnsFrom": [
-            "file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["file_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1051,9 +994,7 @@
         "voucher_attachments_file_id_unique": {
           "name": "voucher_attachments_file_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "file_id"
-          ]
+          "columns": ["file_id"]
         }
       },
       "policies": {},
@@ -1175,12 +1116,8 @@
           "name": "voucher_events_voucher_id_vouchers_id_fk",
           "tableFrom": "voucher_events",
           "tableTo": "vouchers",
-          "columnsFrom": [
-            "voucher_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voucher_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1188,12 +1125,8 @@
           "name": "voucher_events_actor_id_users_id_fk",
           "tableFrom": "voucher_events",
           "tableTo": "users",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1359,12 +1292,8 @@
           "name": "voucher_lines_voucher_id_vouchers_id_fk",
           "tableFrom": "voucher_lines",
           "tableTo": "vouchers",
-          "columnsFrom": [
-            "voucher_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voucher_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1372,12 +1301,8 @@
           "name": "voucher_lines_category_id_categories_id_fk",
           "tableFrom": "voucher_lines",
           "tableTo": "categories",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["category_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1560,12 +1485,8 @@
           "name": "vouchers_employee_id_users_id_fk",
           "tableFrom": "vouchers",
           "tableTo": "users",
-          "columnsFrom": [
-            "employee_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["employee_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1573,12 +1494,8 @@
           "name": "vouchers_department_id_departments_id_fk",
           "tableFrom": "vouchers",
           "tableTo": "departments",
-          "columnsFrom": [
-            "department_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["department_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1586,12 +1503,8 @@
           "name": "vouchers_manager_id_users_id_fk",
           "tableFrom": "vouchers",
           "tableTo": "users",
-          "columnsFrom": [
-            "manager_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["manager_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1601,9 +1514,7 @@
         "vouchers_number_unique": {
           "name": "vouchers_number_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "number"
-          ]
+          "columns": ["number"]
         }
       },
       "policies": {},

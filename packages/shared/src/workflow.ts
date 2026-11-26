@@ -18,8 +18,16 @@ import type { VoucherSummary } from './vouchers.js';
  */
 export const REVIEW_STAGES = {
   pending_manager: { approver: 'manager', query: 'manager_query', rejected: 'manager_rejected' },
-  pending_accounts: { approver: 'accounts', query: 'accounts_query', rejected: 'accounts_rejected' },
-  pending_director: { approver: 'director', query: 'director_query', rejected: 'director_rejected' },
+  pending_accounts: {
+    approver: 'accounts',
+    query: 'accounts_query',
+    rejected: 'accounts_rejected',
+  },
+  pending_director: {
+    approver: 'director',
+    query: 'director_query',
+    rejected: 'director_rejected',
+  },
 } as const satisfies Record<
   string,
   { approver: Role; query: ApprovalStatus; rejected: ApprovalStatus }
