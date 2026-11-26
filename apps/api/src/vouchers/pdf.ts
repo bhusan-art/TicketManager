@@ -206,7 +206,36 @@ export function renderVoucherPdf(v: VoucherDetail): Promise<Buffer> {
     .fontSize(8)
     .fillColor(MUTED)
     .text(rupeesInWords(v.totalPaise), left, doc.y + 2, { width, align: 'right' });
+  if (v.approvedTotalPaise !== null) {
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(10)
+      .fillColor(GREEN)
+      .text(`Approved: ${rs(v.approvedTotalPaise)}`, left, doc.y + 4, { width, align: 'right' });
+  }
   doc.moveDown(1);
+
+  const reduced = v.lines
+    .map((l, i) => ({ n: i + 1, l }))
+    .filter(({ l }) => l.approvedPaise !== null && l.approvedPaise < l.amountPaise);
+  if (reduced.length) {
+    ensure(40);
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(9)
+      .fillColor(INK)
+      .text('Approved for less than claimed', left);
+    doc.font('Helvetica').fontSize(8);
+    for (const { n, l } of reduced) {
+      doc.text(
+        `Line ${n}: ${rs(l.approvedPaise!)} of ${rs(l.amountPaise)}${l.reviewNote ? ` (${l.reviewNote})` : ''}`,
+        left,
+        doc.y + 2,
+        { width },
+      );
+    }
+    doc.moveDown(0.8);
+  }
 
   const gstLines = v.lines.filter((l) => l.isGst);
   if (gstLines.length) {

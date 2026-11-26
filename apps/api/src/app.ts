@@ -14,6 +14,7 @@ import { healthRouter, type HealthCheck } from './routes/health.js';
 import type { Services } from './services.js';
 import { adminRouter } from './users/adminRoutes.js';
 import { categoriesRouter } from './categories/routes.js';
+import { approvalsRouter, voucherReviewRouter } from './vouchers/reviewRoutes.js';
 import { vouchersRouter } from './vouchers/routes.js';
 
 export interface AppOptions {
@@ -66,6 +67,8 @@ export function createApp(options: AppOptions) {
     api.use('/admin', adminRouter(services));
     api.use('/categories', categoriesRouter(services));
     api.use('/vouchers', vouchersRouter(services));
+    api.use('/vouchers', voucherReviewRouter(services));
+    api.use('/approvals', approvalsRouter(services));
   }
   for (const [path, router] of Object.entries(options.routers ?? {})) {
     api.use(path, router);

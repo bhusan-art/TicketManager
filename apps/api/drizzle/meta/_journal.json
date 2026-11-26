@@ -29,6 +29,13 @@
       "when": 1795673040265,
       "tag": "0003_vouchers",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795677598484,
+      "tag": "0004_approvals",
+      "breakpoints": true
     }
   ]
 }

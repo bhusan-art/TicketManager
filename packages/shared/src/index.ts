@@ -7,3 +7,4 @@ export * from './auth.js';
 export * from './users.js';
 export * from './money.js';
 export * from './vouchers.js';
+export * from './workflow.js';

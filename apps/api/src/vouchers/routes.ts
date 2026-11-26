@@ -33,14 +33,14 @@ import type { Services } from '../services.js';
 import { readFile, saveFile } from '../storage/files.js';
 import { nextDocumentNumber } from './numbering.js';
 import { renderVoucherPdf } from './pdf.js';
+import { recordEvent } from './events.js';
 import {
-  canView,
   getVoucherDetail,
   getVoucherLines,
-  permissions,
   selectVoucherSummaries,
   toVoucherSummary,
 } from './queries.js';
+import { canView, permissions } from './workflow.js';
 
 const idParams = z.object({ id: z.uuid() });
 const lineParams = idParams.extend({ lineId: z.uuid() });
@@ -52,8 +52,8 @@ type LineInput = z.infer<typeof createVoucherSchema>['lines'][number];
 const invalid = (message: string, issues: Issue[]) =>
   new AppError('VALIDATION_FAILED', message, issues);
 
-/** Where a newly submitted voucher goes first, from the claimant's roles (requirements review). */
-function firstStage(user: {
+/** Where a newly submitted (or resubmitted) voucher goes first, from the claimant's roles (requirements review). */
+export function firstStage(user: {
   roles: string[];
   managerId: string | null;
 }): Extract<ApprovalStatus, 'pending_manager' | 'pending_accounts' | 'pending_director'> {
@@ -76,7 +76,7 @@ export function vouchersRouter({ db }: Services) {
   const router = Router();
   router.use(requireAuth);
 
-  /** Locks the voucher for the rest of the transaction and checks the caller may change it. */
+  /** Locks the voucher for the rest of the transaction. 404 unless the caller may see it. */
   async function lockOwn(tx: Tx, req: Request, id: string, version?: number) {
     const [voucher] = await tx.select().from(vouchers).where(eq(vouchers.id, id)).for('update');
     if (!voucher || !canView(req.auth!, voucher)) throw notFound('Voucher');
@@ -89,7 +89,9 @@ export function vouchersRouter({ db }: Services) {
   }
 
   const notEditable = () =>
-    conflict('This voucher can no longer be edited. Only drafts can be changed.');
+    conflict(
+      'This voucher can no longer be edited. Only drafts and returned vouchers can be changed.',
+    );
 
   /** Category ids must exist. A line may keep an inactive category it already had. */
   async function assertCategories(tx: Tx, lines: LineInput[], keep: Set<string>) {
@@ -128,11 +130,9 @@ export function vouchersRouter({ db }: Services) {
   });
 
   async function detail(req: Request, id: string) {
-    const voucher = await getVoucherDetail(db, id, req.auth!);
-    if (!voucher || !canView(req.auth!, { employeeId: voucher.employee.id })) {
-      throw notFound('Voucher');
-    }
-    return voucher;
+    const [row] = await db.select().from(vouchers).where(eq(vouchers.id, id));
+    if (!row || !canView(req.auth!, row)) throw notFound('Voucher');
+    return (await getVoucherDetail(db, id, req.auth!))!;
   }
 
   // ---- List and read ----
@@ -220,6 +220,13 @@ export function vouchersRouter({ db }: Services) {
         actorRole: req.auth!.activeRole,
         after: { purpose: input.purpose ?? null, lines: input.lines.length },
         req,
+      });
+      await recordEvent(tx, {
+        voucherId: voucher!.id,
+        type: 'created',
+        actorId: req.auth!.userId,
+        actorRole: req.auth!.activeRole,
+        toStatus: 'draft',
       });
       return voucher!.id;
     });
@@ -325,6 +332,7 @@ export function vouchersRouter({ db }: Services) {
     await db.transaction(async (tx) => {
       const { voucher, can } = await lockOwn(tx, req, id, version);
       if (!can.submit) throw conflict('This voucher has already been submitted');
+      const resubmission = voucher.approvalStatus === 'returned';
 
       const lines = await getVoucherLines(tx, id);
       const issues = voucherSubmitIssues({
@@ -372,13 +380,30 @@ export function vouchersRouter({ db }: Services) {
         departmentId: claimant!.departmentId,
         managerId: status === 'pending_manager' ? claimant!.managerId : null,
         submittedAt: new Date(),
+        // A resubmission is reviewed afresh from the first stage.
+        approvedTotalPaise: null,
       };
       await tx
         .update(vouchers)
         .set({ ...changes, version: sql`${vouchers.version} + 1` })
         .where(eq(vouchers.id, id));
+      if (resubmission) {
+        await tx
+          .update(voucherLines)
+          .set({ approvedPaise: null, reviewNote: null })
+          .where(eq(voucherLines.voucherId, id));
+      }
+      await recordEvent(tx, {
+        voucherId: id,
+        type: resubmission ? 'resubmitted' : 'submitted',
+        actorId: req.auth!.userId,
+        actorRole: req.auth!.activeRole,
+        fromStatus: voucher.approvalStatus,
+        toStatus: status,
+        meta: { totalPaise: voucher.totalPaise },
+      });
       await recordAudit(tx, {
-        action: 'voucher.submitted',
+        action: resubmission ? 'voucher.resubmitted' : 'voucher.submitted',
         entityType: 'voucher',
         entityId: id,
         actorId: req.auth!.userId,
@@ -422,6 +447,15 @@ export function vouchersRouter({ db }: Services) {
         after: changes,
         req,
       });
+      await recordEvent(tx, {
+        voucherId: id,
+        type: 'cancelled',
+        actorId: req.auth!.userId,
+        actorRole: req.auth!.activeRole,
+        fromStatus: voucher.approvalStatus,
+        toStatus: 'cancelled',
+        message: reason,
+      });
     });
     res.json(await detail(req, id));
   });
@@ -437,8 +471,9 @@ export function vouchersRouter({ db }: Services) {
       throw invalid(message, [{ path: 'file', message }]);
     }
     const attachmentId = await db.transaction(async (tx) => {
-      const { can } = await lockOwn(tx, req, id);
-      if (!can.edit) throw notEditable();
+      const { voucher, can } = await lockOwn(tx, req, id);
+      // While answering a query the employee may add bills, but not remove or change anything.
+      if (!can.edit && !can.answer) throw notEditable();
       const [line] = await tx
         .select({ id: voucherLines.id })
         .from(voucherLines)
@@ -471,13 +506,24 @@ export function vouchersRouter({ db }: Services) {
         after: { lineId, filename: file.filename, sizeBytes: file.sizeBytes, sha256: file.sha256 },
         req,
       });
+      // Drafts change freely; once submitted, every added bill shows on the timeline.
+      if (voucher.submittedAt) {
+        await recordEvent(tx, {
+          voucherId: id,
+          type: 'attachment_added',
+          actorId: req.auth!.userId,
+          actorRole: req.auth!.activeRole,
+          message: file.filename,
+          meta: { lineId, attachmentId: attachment!.id },
+        });
+      }
       return attachment!.id;
     });
-    const voucher = await detail(req, id);
-    const attachment = voucher.lines
+    const detailed = await detail(req, id);
+    const attachment = detailed.lines
       .flatMap((l) => l.attachments)
       .find((a) => a.id === attachmentId);
-    res.status(201).json({ attachment, version: voucher.version });
+    res.status(201).json({ attachment, version: detailed.version });
   });
 
   async function findAttachment(voucherId: string, attachmentId: string) {
