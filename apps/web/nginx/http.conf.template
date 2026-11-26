@@ -1,0 +1,10 @@
+# Plain HTTP: used until certificates are placed in deploy/certs (see docs/DEPLOY.md).
+include /etc/nginx/snippets/common.conf;
+
+map $scheme $hsts { default ""; }
+
+server {
+  listen 80 default_server;
+  server_name _;
+  include /etc/nginx/snippets/app.conf;
+}

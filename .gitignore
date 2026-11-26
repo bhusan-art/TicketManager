@@ -6,3 +6,8 @@ coverage/
 !.env.example
 *.log
 .DS_Store
+# Server data: backups and TLS keys never go into git.
+backups/
+deploy/certs/*
+!deploy/certs/README.md
+deploy/acme/

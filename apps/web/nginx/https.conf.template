@@ -1,0 +1,38 @@
+# HTTPS: chosen automatically when /etc/nginx/certs/fullchain.pem and privkey.pem exist.
+include /etc/nginx/snippets/common.conf;
+
+map $scheme $hsts { default "max-age=31536000"; }
+
+server {
+  listen 80 default_server;
+  server_name _;
+  access_log /var/log/nginx/access.log json;
+  # Let's Encrypt HTTP check, if you use it (see docs/DEPLOY.md).
+  location /.well-known/acme-challenge/ {
+    root /var/www/acme;
+  }
+  location = /nginx-health {
+    access_log off;
+    default_type text/plain;
+    return 200 "ok\n";
+  }
+  location / {
+    return 301 ${PUBLIC_URL}$request_uri;
+  }
+}
+
+server {
+  listen 443 ssl default_server;
+  http2 on;
+  server_name _;
+
+  ssl_certificate /etc/nginx/certs/fullchain.pem;
+  ssl_certificate_key /etc/nginx/certs/privkey.pem;
+  ssl_protocols TLSv1.2 TLSv1.3;
+  ssl_prefer_server_ciphers off;
+  ssl_session_cache shared:SSL:10m;
+  ssl_session_timeout 1d;
+  ssl_session_tickets off;
+
+  include /etc/nginx/snippets/app.conf;
+}

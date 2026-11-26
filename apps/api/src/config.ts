@@ -47,6 +47,23 @@ const envSchema = z
         message: 'set a real secret in production',
       });
     }
+    // On a real server (https), refuse the placeholder secrets from .env.example.
+    if (env.NODE_ENV === 'production' && env.PUBLIC_URL.startsWith('https://')) {
+      if (env.JWT_SECRET.includes('change-me')) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['JWT_SECRET'],
+          message: 'replace the example value (e.g. openssl rand -base64 48)',
+        });
+      }
+      if (env.DATABASE_URL.includes('change-me')) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['POSTGRES_PASSWORD'],
+          message: 'replace the example database password before the first start',
+        });
+      }
+    }
     if (Boolean(env.GOOGLE_CLIENT_ID) !== Boolean(env.GOOGLE_CLIENT_SECRET)) {
       ctx.addIssue({
         code: 'custom',

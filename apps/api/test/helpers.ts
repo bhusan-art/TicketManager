@@ -20,6 +20,7 @@ export function testApp(overrides: Partial<AppOptions> = {}) {
     version: 'test',
     corsOrigin: 'http://localhost:5173',
     healthChecks: {},
+    rateLimits: false,
     ...overrides,
   });
 }

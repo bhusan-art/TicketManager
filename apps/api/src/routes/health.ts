@@ -5,7 +5,7 @@ export type HealthCheck = () => Promise<boolean>;
 
 const TIMEOUT_MS = 2000;
 
-async function run(check: HealthCheck): Promise<DependencyStatus> {
+export async function runCheck(check: HealthCheck): Promise<DependencyStatus> {
   let timer: NodeJS.Timeout | undefined;
   try {
     const ok = await Promise.race([
@@ -33,7 +33,7 @@ export function healthRouter(version: string, checks: Record<string, HealthCheck
   /** Readiness: the process and every dependency are reachable. */
   router.get('/', async (_req, res) => {
     const names = Object.keys(checks);
-    const results = await Promise.all(names.map((n) => run(checks[n]!)));
+    const results = await Promise.all(names.map((n) => runCheck(checks[n]!)));
     const statuses = Object.fromEntries(names.map((n, i) => [n, results[i]!]));
     const allUp = results.every((r) => r === 'up');
     const body: HealthResponse = {

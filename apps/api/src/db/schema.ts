@@ -22,6 +22,7 @@ import {
   ADVANCE_STATUSES,
   ADVANCE_TRANSACTION_KINDS,
   APPROVAL_STATUSES,
+  BACKUP_RUN_STATUSES,
   CATEGORY_STATUSES,
   EMAIL_KINDS,
   EMAIL_STATUSES,
@@ -609,4 +610,22 @@ export const exportJobs = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('export_jobs_requested_by_idx').on(t.requestedBy, t.createdAt.desc())],
+);
+
+/**
+ * Database backups. The backup service (deploy/backup) adds a row after each nightly dump, so
+ * Admins can see on the dashboard that backups are running.
+ */
+export const backupRuns = pgTable(
+  'backup_runs',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    status: text('status', { enum: BACKUP_RUN_STATUSES }).notNull(),
+    file: text('file'),
+    sizeBytes: bigint('size_bytes', { mode: 'number' }),
+    error: text('error'),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('backup_runs_finished_at_idx').on(t.finishedAt.desc())],
 );
