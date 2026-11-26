@@ -66,7 +66,7 @@ npm run dev:worker
 npm run dev:web       # http://localhost:5173, proxies /api to the API
 ```
 
-When running the API outside Docker, set
+When running the API or worker outside Docker, set
 `DATABASE_URL=postgres://ticketmanager:<password>@localhost:5433/ticketmanager` and
 `PUBLIC_URL=http://localhost:5173` (see `.env.example`).
 
@@ -197,6 +197,20 @@ HTTPS (Google refuses private IP addresses).
 - A mistaken payout, return or shortfall payment is reversed with a reason, never deleted. A payout can be reversed only while no claim or settlement entry depends on it.
 - Advance money is not counted as an expense. Reports count approved claims; claims settled from an advance count as paid.
 - APIs: `/advances` (list by `view`, `counts`, `linkable`, `settings`), `POST /advances/:id/{submit,approve,return,reject,cancel,disburse,transactions,close}`, `POST /advances/:id/transactions/:txId/reverse`, `PUT /admin/settings/advances`.
+
+## Notifications and follow-ups
+
+- Every workflow step notifies the people it concerns, in the app (the bell and **Notifications** page) and by email. Nobody is notified about their own action.
+  - Submitted, resubmitted or approved on to the next stage: the next approver (the reporting manager, or everyone working as Accounts or Director). The employee hears each approval.
+  - Query, return, reject, payment, reversal, payout and settlement steps: the employee. An **Accounts query goes to the employee with the manager copied**. The answer goes back to whoever asked.
+  - Final approval by the Director: Accounts, who pays it. Comments reach everyone who has acted on the claim. Cancelling tells the reviewer (in the app only).
+- Opening a notification switches to the role it is for (e.g. Manager for "needs your approval").
+- **Follow-ups:** while a claim or advance waits on someone else (approval, payment or payout), the employee can send that person a reminder, with an optional note. They can send one every 24 hours by default, counted from when it reached that person or from the last reminder. The reminder shows on the timeline.
+- **Email** goes through an outbox: each email is saved in the `email_outbox` table in the same transaction as the step that causes it, so nothing is sent for a change that fails, and nothing is lost if Redis or the mail server is down. The worker sends due emails (woken by the API, and sweeping every 15 seconds), and retries failures after 1, 5, 15, 60 and 180 minutes before marking them **Failed**.
+- **Email log** (Admin): every email with its status, tries and last error. A failed email can be sent again once the SMTP settings are fixed.
+- **Settings** (Admin): turn workflow emails off (in-app notifications always stay on; invitations and password resets are always emailed), and change the hours between reminders.
+- The worker needs `DATABASE_URL` and `PUBLIC_URL` (for links in emails); Docker Compose sets both.
+- APIs: `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/read`, `GET /notifications/settings`, `GET|POST /vouchers/:id/follow-up`, `GET|POST /advances/:id/follow-up`, `GET /admin/emails`, `POST /admin/emails/:id/retry`, `PUT /admin/settings/notifications`.
 
 ## Database
 

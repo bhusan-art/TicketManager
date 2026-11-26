@@ -116,6 +116,7 @@ export const VOUCHER_EVENT_TYPES = [
   'attachment_added',
   'payment_recorded',
   'payment_reversed',
+  'followed_up',
 ] as const;
 export type VoucherEventType = (typeof VOUCHER_EVENT_TYPES)[number];
 

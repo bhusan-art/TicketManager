@@ -7,6 +7,7 @@ import {
   HandCoins,
   LayoutDashboard,
   LogOut,
+  Mail,
   Receipt,
   Scale,
   Settings,
@@ -17,8 +18,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import { useAuth, useUser } from '../auth/AuthContext';
+import { useUnreadCount } from '../lib/notifications';
 
 interface NavItem {
   to: string;
@@ -45,6 +47,7 @@ const NAV: NavItem[] = [
   { to: '/admin/users', label: 'Users & roles', icon: Users, roles: ['admin'] },
   { to: '/admin/departments', label: 'Departments', icon: Building2, roles: ['admin'] },
   { to: '/admin/categories', label: 'Categories', icon: Tags, roles: ['admin'] },
+  { to: '/admin/emails', label: 'Email log', icon: Mail, roles: ['admin'] },
   { to: '/admin/settings', label: 'Settings', icon: Settings, roles: ['admin'] },
   { to: '/notifications', label: 'Notifications', icon: Bell },
   { to: '/profile', label: 'Profile', icon: User },
@@ -61,6 +64,7 @@ const initials = (name: string) =>
 export function Layout() {
   const user = useUser();
   const nav = NAV.filter((item) => !item.roles || item.roles.includes(user.activeRole));
+  const unread = useUnreadCount();
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -73,6 +77,11 @@ export function Layout() {
             <NavLink key={to} to={to} end={to === '/'} className="nav-link">
               <Icon size={18} aria-hidden />
               {label}
+              {to === '/notifications' && unread > 0 && (
+                <span className="nav-count" aria-label={`${unread} unread`}>
+                  {unread > 99 ? '99+' : unread}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -87,6 +96,14 @@ export function Layout() {
             disabled
           />
           <div className="topbar-actions">
+            <Link
+              to="/notifications"
+              className="bell"
+              aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'}
+            >
+              <Bell size={20} aria-hidden />
+              {unread > 0 && <span className="bell-dot">{unread > 9 ? '9+' : unread}</span>}
+            </Link>
             <RoleSwitcher />
             <UserMenu />
           </div>

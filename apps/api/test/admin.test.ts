@@ -1,7 +1,15 @@
 import request from 'supertest';
 import { beforeAll, beforeEach, expect, it } from 'vitest';
 import { auditLog } from '../src/db/schema.js';
-import { bearer, describeWithDb, makeUser, signIn, testServices, useTestDb } from './helpers.js';
+import {
+  bearer,
+  describeWithDb,
+  makeUser,
+  outbox,
+  signIn,
+  testServices,
+  useTestDb,
+} from './helpers.js';
 
 describeWithDb('admin: users and departments', () => {
   const t = useTestDb();
@@ -16,7 +24,6 @@ describeWithDb('admin: users and departments', () => {
     const admin = await makeUser(t.db, { roles: ['admin', 'employee'] });
     adminId = admin.id;
     auth = bearer((await signIn(ctx.app, admin.email)).token);
-    ctx.mailer.sent.length = 0;
   });
 
   const post = (path: string, body: object) =>
@@ -46,8 +53,9 @@ describeWithDb('admin: users and departments', () => {
       status: 'active',
     });
 
-    expect(ctx.mailer.sent).toHaveLength(1);
-    const link = ctx.mailer.sent[0]!.text.match(/https?:\/\/\S+/)![0];
+    const mail = await outbox(t.db);
+    expect(mail).toHaveLength(1);
+    const link = mail[0]!.text.match(/https?:\/\/\S+/)![0];
     expect(link).toContain('/set-password?token=');
     const token = new URL(link).searchParams.get('token');
     const set = await request(ctx.app)

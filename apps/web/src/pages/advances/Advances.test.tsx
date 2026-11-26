@@ -207,4 +207,66 @@ describe('Advances', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save as draft' }));
     expect(calls.find((c) => c.key === 'POST /vouchers')!.body).toMatchObject({ advanceId: 'a1' });
   });
+
+  it('lets the employee remind the approver once the cooldown has passed', async () => {
+    const pending = advance({ status: 'pending_manager', waitingOn: 'Amit Verma', settleBy: null });
+    const state = {
+      waitingOn: 'Amit Verma',
+      canSend: true,
+      nextAllowedAt: null,
+      lastSentAt: null,
+      cooldownHours: 24,
+    };
+    const calls = mockApi({
+      'POST /auth/refresh': () => ({ status: 200, body: session(makeUser()) }),
+      'GET /advances/a1': () => ({ status: 200, body: pending }),
+      'GET /advances/a1/follow-up': () => ({ status: 200, body: state }),
+      'POST /advances/a1/follow-up': () => ({
+        status: 201,
+        body: {
+          ...state,
+          canSend: false,
+          lastSentAt: '2026-11-26T10:00:00Z',
+          nextAllowedAt: '2026-11-27T10:00:00Z',
+        },
+      }),
+    });
+    renderApp('/advances/a1');
+    expect(await screen.findByText('Waiting on Amit Verma')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Send reminder' }));
+    await userEvent.type(screen.getByLabelText('Note (optional)'), 'Trip is on Monday');
+    await userEvent.click(screen.getByRole('button', { name: 'Send reminder to Amit Verma' }));
+    expect(await screen.findByText('Reminder sent to Amit Verma.')).toBeInTheDocument();
+    expect(calls.find((c) => c.key === 'POST /advances/a1/follow-up')!.body).toEqual({
+      message: 'Trip is on Monday',
+    });
+    expect(screen.getByRole('button', { name: 'Send reminder' })).toBeDisabled();
+    expect(screen.getByText(/You can send a reminder from/)).toBeInTheDocument();
+  });
+
+  it('shows no reminder to someone who is not the employee', async () => {
+    mockApi({
+      'POST /auth/refresh': () => ({
+        status: 200,
+        body: session(makeUser({ id: 'm1', roles: ['manager'], activeRole: 'manager' })),
+      }),
+      'GET /advances/a1': () => ({
+        status: 200,
+        body: advance({ status: 'pending_manager', waitingOn: 'Amit Verma' }),
+      }),
+      'GET /advances/a1/follow-up': () => ({
+        status: 200,
+        body: {
+          waitingOn: 'Amit Verma',
+          canSend: false,
+          nextAllowedAt: null,
+          lastSentAt: null,
+          cooldownHours: 24,
+        },
+      }),
+    });
+    renderApp('/advances/a1');
+    expect(await screen.findByText('ADV-2026-00001', { selector: 'h1' })).toBeInTheDocument();
+    expect(screen.queryByText('Waiting on Amit Verma')).not.toBeInTheDocument();
+  });
 });
