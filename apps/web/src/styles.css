@@ -650,3 +650,391 @@ a {
     display: none;
   }
 }
+
+/* ---- Expenses ---- */
+
+.pill.pending {
+  background: #fff4e0;
+  color: #a35c00;
+}
+
+.btn-danger {
+  background: var(--surface);
+  color: var(--danger);
+  border-color: #f2c4bf;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+}
+
+.btn-link.danger {
+  color: var(--danger);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 6px;
+  display: inline-flex;
+}
+
+.icon-btn:hover:not(:disabled) {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.card.wide {
+  max-width: 980px;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+.tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.6rem 0.85rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.tab-count {
+  font-size: 0.72rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 0.45rem;
+  color: var(--muted);
+}
+
+.tab.active .tab-count {
+  background: var(--primary-soft);
+  border-color: transparent;
+  color: var(--primary);
+}
+
+.table .num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.table.clickable tbody tr {
+  cursor: pointer;
+}
+
+.table.clickable tbody tr:hover td {
+  background: var(--bg);
+}
+
+.table td.empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 2rem 1rem;
+}
+
+.table tfoot td {
+  font-weight: 700;
+  border-top: 1px solid var(--border);
+  padding: 0.75rem 1rem;
+}
+
+.table.compact {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+}
+
+.table.compact th,
+.table.compact td {
+  padding: 0.5rem 0.6rem;
+}
+
+.stepper {
+  display: flex;
+  gap: 1.75rem;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.stepper li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.step-dot {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.8rem;
+  background: var(--surface);
+}
+
+.stepper li.current {
+  color: var(--primary);
+}
+
+.stepper li.current .step-dot {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
+.stepper li.done .step-dot {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.voucher-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 980px;
+}
+
+.voucher-form > .card {
+  margin-top: 0;
+}
+
+.voucher-form > .btn-secondary {
+  align-self: flex-start;
+}
+
+.line-card {
+  border: 1px solid var(--border);
+  margin: 0;
+  min-width: 0;
+}
+
+.line-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+  padding: 0;
+}
+
+fieldset.line-card > legend.line-title {
+  float: left;
+}
+
+fieldset.line-card > legend.line-title + * {
+  clear: both;
+}
+
+.line-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 1rem;
+}
+
+.line-grid .field {
+  margin-bottom: 0.75rem;
+}
+
+.gst-toggle {
+  align-self: center;
+}
+
+.gst-grid {
+  border-top: 1px dashed var(--border);
+  padding-top: 0.85rem;
+}
+
+.field textarea {
+  font: inherit;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  resize: vertical;
+}
+
+.dropzone {
+  border: 2px dashed #b9d9cc;
+  border-radius: 10px;
+  background: #f6fbf9;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--primary);
+  text-align: center;
+  margin-bottom: 0.75rem;
+}
+
+.dropzone span:not(.muted) {
+  color: var(--text);
+}
+
+.dropzone.dragging {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.file-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.file-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+}
+
+.file-list li .btn-link {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+}
+
+.step-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.issues {
+  border-color: #f2c4bf;
+  background: #fffafa;
+}
+
+.issues ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+}
+
+.issues li {
+  margin-bottom: 0.25rem;
+}
+
+h1.with-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+  max-width: 980px;
+}
+
+.detail-grid .card {
+  margin-top: 0;
+}
+
+.page-head + .notice,
+.page-head + .form-error {
+  margin-bottom: 1rem;
+}
+
+.timeline {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-left: 2px solid var(--primary-soft);
+}
+
+.timeline li {
+  position: relative;
+  padding: 0 0 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.9rem;
+}
+
+.timeline li::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 0.3rem;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.detail-grid + .card {
+  margin-top: 1rem;
+}
+
+@media (max-width: 900px) {
+  .line-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .line-grid {
+    grid-template-columns: 1fr;
+  }
+  .stepper {
+    gap: 0.75rem;
+    font-size: 0.8rem;
+  }
+  .page-head {
+    flex-direction: column;
+  }
+}

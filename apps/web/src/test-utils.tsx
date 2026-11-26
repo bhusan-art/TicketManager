@@ -11,12 +11,12 @@ export type Routes = Record<string, Handler>;
 
 /** Mocks fetch with handlers keyed by "METHOD /path" (path without /api/v1 and query). */
 export function mockApi(routes: Routes) {
-  const calls: { key: string; body: unknown }[] = [];
+  const calls: { key: string; body: unknown; headers: Record<string, string> }[] = [];
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     const path = url.replace(/^\/api\/v1/, '').split('?')[0];
     const key = `${init?.method ?? 'GET'} ${path}`;
-    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-    calls.push({ key, body });
+    const body = typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body;
+    calls.push({ key, body, headers: (init?.headers ?? {}) as Record<string, string> });
     const handler = routes[key];
     const result = handler
       ? handler(body)

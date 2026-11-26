@@ -1,6 +1,10 @@
 import { PASSWORD_RULES } from '@ticketmanager/shared';
-import type { ReactNode } from 'react';
+import { cloneElement, useId, type ReactElement } from 'react';
 
+/**
+ * A labelled form control. The label names the control; the hint and error are linked with
+ * aria-describedby so screen readers read them without making them part of the name.
+ */
 export function Field({
   label,
   error,
@@ -10,19 +14,32 @@ export function Field({
   label: string;
   error?: string;
   hint?: string;
-  children: ReactNode;
+  children: ReactElement<{ id?: string; 'aria-describedby'?: string; 'aria-invalid'?: boolean }>;
 }) {
+  const id = useId();
+  const controlId = children.props.id ?? `${id}-control`;
+  const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
   return (
-    <label className="field">
-      <span className="field-label">{label}</span>
-      {children}
-      {hint && !error && <span className="field-hint">{hint}</span>}
+    <div className="field">
+      <label className="field-label" htmlFor={controlId}>
+        {label}
+      </label>
+      {cloneElement(children, {
+        id: controlId,
+        'aria-describedby': describedBy,
+        'aria-invalid': error ? true : undefined,
+      })}
+      {hint && !error && (
+        <span className="field-hint" id={`${id}-hint`}>
+          {hint}
+        </span>
+      )}
       {error && (
-        <span className="field-error" role="alert">
+        <span className="field-error" id={`${id}-error`} role="alert">
           {error}
         </span>
       )}
-    </label>
+    </div>
   );
 }
 

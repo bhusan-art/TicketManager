@@ -36,15 +36,26 @@ export function setSignedOutHandler(handler: () => void) {
   onSignedOut = handler;
 }
 
-async function send(method: string, path: string, body?: unknown) {
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+interface SendOptions {
+  body?: unknown;
+  headers?: Record<string, string>;
+  accept?: string;
+}
+
+async function send(method: string, path: string, options: SendOptions = {}) {
+  const { body } = options;
+  const headers: Record<string, string> = {
+    Accept: options.accept ?? 'application/json',
+    ...options.headers,
+  };
+  const isForm = body instanceof FormData;
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   return fetch(`/api/v1${path}`, {
     method,
     headers,
     credentials: 'include',
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
   });
 }
 
@@ -80,22 +91,77 @@ export function refreshSession(): Promise<SessionResponse | null> {
   return refreshing;
 }
 
-export async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
-  let res = await send(method, path, body);
+/** Sends a request, refreshing the access token once if it has expired. */
+async function sendAuthed(method: string, path: string, options: SendOptions = {}) {
+  let res = await send(method, path, options);
   if (res.status === 401 && accessToken && !path.startsWith('/auth/')) {
     const session = await refreshSession();
     if (!session) {
       onSignedOut();
-      return parse<T>(res);
+      return res;
     }
-    res = await send(method, path, body);
+    res = await send(method, path, options);
   }
-  return parse<T>(res);
+  return res;
+}
+
+export async function api<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  headers?: Record<string, string>,
+): Promise<T> {
+  return parse<T>(await sendAuthed(method, path, { body, headers }));
 }
 
 export const apiGet = <T>(path: string) => api<T>('GET', path);
 export const apiPost = <T>(path: string, body?: unknown) => api<T>('POST', path, body ?? {});
 export const apiPatch = <T>(path: string, body: unknown) => api<T>('PATCH', path, body);
+export const apiDelete = <T = void>(path: string) => api<T>('DELETE', path);
+
+/** Uploads one file as multipart form data in the field `file`. */
+export function apiUpload<T>(path: string, file: File): Promise<T> {
+  const form = new FormData();
+  form.append('file', file);
+  return api<T>('POST', path, form);
+}
+
+/** A fresh key so a retried click can't submit twice. */
+export const idempotencyKey = () =>
+  globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+/**
+ * Fetches a protected file (it needs the access token, so a plain link won't do) and either
+ * saves it or opens it in a new tab.
+ */
+export async function fetchFile(path: string, mode: 'save' | 'open', fallbackName = 'file') {
+  // Open the tab first, while we still have the click, so pop-up blockers allow it.
+  const tab = mode === 'open' ? window.open('', '_blank') : null;
+  try {
+    const res = await sendAuthed('GET', path, { accept: '*/*' });
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
+      throw new ApiError(res.status, json as ApiErrorBody | null);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    if (tab) {
+      tab.location.href = url;
+    } else {
+      const match = /filename\*=UTF-8''([^;]+)/.exec(res.headers.get('content-disposition') ?? '');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = match ? decodeURIComponent(match[1]!) : fallbackName;
+      document.body.append(a);
+      a.click();
+      a.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (err) {
+    tab?.close();
+    throw err;
+  }
+}
 
 /** Health is special: a 503 still carries a useful body. */
 export async function getHealth<T>(): Promise<T> {
