@@ -1,4 +1,4 @@
-import type { Role } from '@ticketmanager/shared';
+import { CONTRACTUAL_NEEDS_MANAGER, type EmploymentType, type Role } from '@ticketmanager/shared';
 import { and, arrayContains, eq, ne, sql } from 'drizzle-orm';
 import type { DbOrTx } from '../db/client.js';
 import { departments, users } from '../db/schema.js';
@@ -52,6 +52,11 @@ export async function assertManagerUsable(tx: Tx, userId: string | null, manager
       'That would make a reporting loop: this manager reports to the user',
     );
   }
+}
+
+/** Contractual employees always have a reporting manager; regular ones may not. */
+export function assertContractualHasManager(type: EmploymentType, managerId: string | null) {
+  if (type === 'contractual' && !managerId) throw invalid('managerId', CONTRACTUAL_NEEDS_MANAGER);
 }
 
 export async function countActiveReports(tx: Tx, managerId: string) {

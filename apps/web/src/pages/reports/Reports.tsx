@@ -10,14 +10,16 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useUser } from '../../auth/AuthContext';
 import { Field, FormError } from '../../components/forms';
+import { ProjectSelect, useProjects } from '../../components/ProjectFilter';
 import { PaymentStatusPill, formatWhen } from '../../components/VoucherStatus';
 import { ApiError, apiGet } from '../../lib/api';
 import { csvRupees, downloadCsv, toCsv } from '../../lib/csv';
 
-type Tab = 'department' | 'employee' | 'category' | 'liability';
+type Tab = 'department' | 'project' | 'employee' | 'category' | 'liability';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'department', label: 'By department' },
+  { key: 'project', label: 'By project' },
   { key: 'employee', label: 'By employee' },
   { key: 'category', label: 'By category' },
   { key: 'liability', label: 'Approved, not paid' },
@@ -70,6 +72,8 @@ export function Reports() {
   const from = params.get('from') ?? '';
   const to = params.get('to') ?? '';
   const departmentId = params.get('departmentId') ?? '';
+  const projectId = params.get('projectId') ?? '';
+  const projects = useProjects();
   const [report, setReport] = useState<ReportResponse | null>(null);
   const [liability, setLiability] = useState<LiabilityRow[] | null>(null);
   const [departments, setDepartments] = useState<Ref[]>([]);
@@ -88,6 +92,7 @@ export function Reports() {
     if (from) q.set('from', from);
     if (to) q.set('to', to);
     if (departmentId) q.set('departmentId', departmentId);
+    if (projectId) q.set('projectId', projectId);
     const fail = (e: unknown) =>
       active && setError(e instanceof ApiError ? e.message : 'Could not load the report');
     apiGet<ReportResponse>(`/reports?${q}`).then((r) => {
@@ -95,13 +100,17 @@ export function Reports() {
       setReport(r);
       setError(null);
     }, fail);
-    apiGet<{ data: LiabilityRow[] }>(
-      `/reports/liability${departmentId ? `?departmentId=${departmentId}` : ''}`,
-    ).then((r) => active && setLiability(r.data), fail);
+    const lq = new URLSearchParams();
+    if (departmentId) lq.set('departmentId', departmentId);
+    if (projectId) lq.set('projectId', projectId);
+    apiGet<{ data: LiabilityRow[] }>(`/reports/liability?${lq}`).then(
+      (r) => active && setLiability(r.data),
+      fail,
+    );
     return () => {
       active = false;
     };
-  }, [from, to, departmentId]);
+  }, [from, to, departmentId, projectId]);
 
   function set(key: string, value: string) {
     const next = new URLSearchParams(params);
@@ -119,6 +128,19 @@ export function Reports() {
         toCsv(
           ['Department', ...MONEY_HEAD],
           report.byDepartment.map((r) => [r.key?.name ?? 'No department', ...moneyCsv(r)]),
+        ),
+      );
+    } else if (tab === 'project') {
+      downloadCsv(
+        `spend-by-project-${range}.csv`,
+        toCsv(
+          ['Project', 'Code', 'Employees', ...MONEY_HEAD],
+          report.byProject.map((r) => [
+            r.key?.name ?? 'No project',
+            r.code,
+            r.employees,
+            ...moneyCsv(r),
+          ]),
         ),
       );
     } else if (tab === 'employee') {
@@ -212,6 +234,13 @@ export function Reports() {
             onChange={(e) => set('to', e.target.value)}
           />
         </Field>
+        <Field label="Project">
+          <ProjectSelect
+            projects={projects}
+            value={projectId}
+            onChange={(v) => set('projectId', v)}
+          />
+        </Field>
         <Field label="Department">
           <select value={departmentId} onChange={(e) => set('departmentId', e.target.value)}>
             <option value="">All departments</option>
@@ -297,6 +326,56 @@ export function Reports() {
               <tfoot>
                 <tr>
                   <td>Total</td>
+                  <MoneyCells r={report.totals} />
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        )}
+
+        {report && tab === 'project' && (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Project</th>
+                <th className="num">People</th>
+                {MONEY_HEAD.map((h) => (
+                  <th key={h} className="num">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {report.byProject.map((r) => (
+                <tr key={r.key?.id ?? 'none'}>
+                  <td>
+                    {r.key ? (
+                      <>
+                        {r.key.name}
+                        {r.code && <div className="muted small">{r.code}</div>}
+                      </>
+                    ) : (
+                      <span className="muted">No project</span>
+                    )}
+                  </td>
+                  <td className="num">{r.employees}</td>
+                  <MoneyCells r={r} />
+                </tr>
+              ))}
+              {report.byProject.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="empty">
+                    No claims in this period.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+            {report.byProject.length > 0 && (
+              <tfoot>
+                <tr>
+                  <td>Total</td>
+                  <td />
                   <MoneyCells r={report.totals} />
                 </tr>
               </tfoot>

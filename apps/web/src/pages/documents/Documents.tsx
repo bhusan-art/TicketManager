@@ -18,6 +18,7 @@ import {
 import { Copy, Download, FileArchive, Link2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useUser } from '../../auth/AuthContext';
+import { ProjectSelect, useProjects } from '../../components/ProjectFilter';
 import { Field, FormError } from '../../components/forms';
 import { formatBytes, formatWhen } from '../../components/VoucherStatus';
 import { ApiError, apiGet, apiPost, fetchFile } from '../../lib/api';
@@ -45,13 +46,17 @@ const SCOPE: Record<string, string> = {
   director: 'Every submitted claim.',
 };
 
-type Form = Record<'from' | 'to' | 'status' | 'paymentStatus' | 'departmentId' | 'search', string>;
+type Form = Record<
+  'from' | 'to' | 'status' | 'paymentStatus' | 'departmentId' | 'projectId' | 'search',
+  string
+>;
 const EMPTY: Form = {
   from: '',
   to: '',
   status: '',
   paymentStatus: '',
   departmentId: '',
+  projectId: '',
   search: '',
 };
 
@@ -69,6 +74,7 @@ export function Documents() {
   const [includeProofs, setIncludeProofs] = useState(true);
   const [preview, setPreview] = useState<ExportPreview | null>(null);
   const [departments, setDepartments] = useState<Ref[]>([]);
+  const projects = useProjects();
   const [jobs, setJobs] = useState<ExportJob[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -234,6 +240,13 @@ export function Documents() {
               </select>
             </Field>
           )}
+          <Field label="Project">
+            <ProjectSelect
+              projects={projects}
+              value={form.projectId}
+              onChange={(v) => set('projectId', v)}
+            />
+          </Field>
           <Field label="Search">
             <input
               type="search"

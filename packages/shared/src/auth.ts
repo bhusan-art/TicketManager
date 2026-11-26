@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ROLES, type Role } from './roles.js';
+import type { EmploymentType } from './users.js';
 
 /** Password rules, shown as a checklist on the reset and change password screens. */
 export const PASSWORD_RULES = [
@@ -57,6 +58,7 @@ export interface AuthUser {
   employeeCode: string | null;
   designation: string | null;
   whatsappNumber: string | null;
+  employmentType: EmploymentType;
   roles: Role[];
   activeRole: Role;
   department: Ref | null;

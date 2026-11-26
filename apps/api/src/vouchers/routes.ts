@@ -1,5 +1,7 @@
 import {
   ATTACHMENT_TYPES,
+  CONTRACTUAL_NEEDS_MANAGER,
+  type EmploymentType,
   MAX_ATTACHMENTS_PER_LINE,
   VOUCHER_STATUS_GROUPS,
   cancelVoucherSchema,
@@ -22,6 +24,7 @@ import type { Tx } from '../db/client.js';
 import {
   advances,
   categories,
+  projects,
   users,
   voucherAttachments,
   voucherLines,
@@ -59,23 +62,29 @@ type LineInput = z.infer<typeof createVoucherSchema>['lines'][number];
 const invalid = (message: string, issues: Issue[]) =>
   new AppError('VALIDATION_FAILED', message, issues);
 
-/** Where a newly submitted (or resubmitted) voucher goes first, from the claimant's roles (requirements review). */
+/**
+ * Where a newly submitted (or resubmitted) voucher or advance goes first, from the claimant's
+ * roles (requirements review). A regular employee with no reporting manager goes straight to
+ * Accounts; a contractual one must have a manager.
+ */
 export function firstStage(user: {
   roles: string[];
   managerId: string | null;
+  employmentType: EmploymentType;
 }): Extract<ApprovalStatus, 'pending_manager' | 'pending_accounts' | 'pending_director'> {
   // An Accounts user's own claim is checked by the Director, never by their own team.
   if (user.roles.includes('accounts')) return 'pending_director';
   // Managers' and directors' own claims go straight to Accounts.
   if (user.roles.includes('manager') || user.roles.includes('director')) return 'pending_accounts';
-  if (!user.managerId) {
+  if (user.managerId) return 'pending_manager';
+  if (user.employmentType === 'contractual') {
     throw new AppError(
       'VALIDATION_FAILED',
-      'You have no reporting manager yet. Ask an admin to set one before you submit.',
+      `${CONTRACTUAL_NEEDS_MANAGER}. Ask an admin to set yours before you submit.`,
       [{ path: 'manager', message: 'No reporting manager' }],
     );
   }
-  return 'pending_manager';
+  return 'pending_accounts';
 }
 
 /**
@@ -102,6 +111,24 @@ async function assertAdvance(tx: Tx, advanceId: string | null | undefined, emplo
             ? 'This advance is already settled. Choose another, or none.'
             : 'This advance has not been paid out yet',
       },
+    ]);
+  }
+}
+
+/** A voucher can be booked only to an active project (one it already has may stay). */
+async function assertProject(
+  tx: Tx,
+  projectId: string | null | undefined,
+  current?: string | null,
+) {
+  if (!projectId || projectId === current) return;
+  const [p] = await tx
+    .select({ status: projects.status })
+    .from(projects)
+    .where(eq(projects.id, projectId));
+  if (!p || p.status !== 'active') {
+    throw invalid('Choose another project', [
+      { path: 'projectId', message: p ? 'This project is closed' : 'Project not found' },
     ]);
   }
 }
@@ -235,11 +262,13 @@ export function vouchersRouter({ db }: Services) {
     const id = await db.transaction(async (tx) => {
       await assertCategories(tx, input.lines, new Set());
       await assertAdvance(tx, input.advanceId, req.auth!.userId);
+      await assertProject(tx, input.projectId);
       const [voucher] = await tx
         .insert(vouchers)
         .values({
           employeeId: req.auth!.userId,
           advanceId: input.advanceId ?? null,
+          projectId: input.projectId ?? null,
           purpose: input.purpose ?? null,
           totalPaise: voucherTotal(input.lines),
         })
@@ -301,6 +330,7 @@ export function vouchersRouter({ db }: Services) {
       if (input.advanceId && input.advanceId !== voucher.advanceId) {
         await assertAdvance(tx, input.advanceId, voucher.employeeId);
       }
+      await assertProject(tx, input.projectId, voucher.projectId);
 
       const keep = input.lines.map((l) => l.id).filter((x): x is string => !!x);
       // Removing a line removes its proofs too (the database cascades and deletes the files).
@@ -326,6 +356,7 @@ export function vouchersRouter({ db }: Services) {
         .update(vouchers)
         .set({
           advanceId: input.advanceId ?? null,
+          projectId: input.projectId ?? null,
           purpose: input.purpose ?? null,
           totalPaise: total,
           version: sql`${vouchers.version} + 1`,
@@ -403,6 +434,18 @@ export function vouchersRouter({ db }: Services) {
           }
         });
       }
+      if (voucher.projectId) {
+        const [p] = await tx
+          .select({ name: projects.name, status: projects.status })
+          .from(projects)
+          .where(eq(projects.id, voucher.projectId));
+        if (p?.status !== 'active') {
+          issues.push({
+            path: 'projectId',
+            message: `"${p?.name ?? 'The project'}" is closed. Choose another project.`,
+          });
+        }
+      }
       if (issues.length) throw invalid('Fix these before submitting', issues);
       // The advance may have been settled since the voucher was tagged.
       await assertAdvance(tx, voucher.advanceId, voucher.employeeId);
@@ -411,6 +454,7 @@ export function vouchersRouter({ db }: Services) {
         .select({
           roles: users.roles,
           managerId: users.managerId,
+          employmentType: users.employmentType,
           departmentId: users.departmentId,
         })
         .from(users)

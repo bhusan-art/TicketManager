@@ -4,10 +4,12 @@ import {
   formatRupees,
   paiseToInput,
   parseRupees,
+  projectLabel,
   todayIso,
   voucherSubmitIssues,
   type Category,
   type LinkableAdvance,
+  type Project,
   type Issue,
   type VoucherAttachment,
   type VoucherDetail,
@@ -143,6 +145,8 @@ export function VoucherForm() {
   const [voucher, setVoucher] = useState<VoucherDetail | null>(null);
   const [purpose, setPurpose] = useState('');
   const [advanceId, setAdvanceId] = useState('');
+  const [projectId, setProjectId] = useState('');
+  const [projects, setProjects] = useState<Project[]>([]);
   const [linkable, setLinkable] = useState<LinkableAdvance[]>([]);
   const [lines, setLines] = useState<LineForm[]>(() => (id ? [] : [blankLine()]));
   const [loading, setLoading] = useState(Boolean(id));
@@ -156,6 +160,10 @@ export function VoucherForm() {
       (r) => setCategories(r.data),
       () => {},
     );
+    apiGet<{ data: Project[] }>('/projects').then(
+      (r) => setProjects(r.data),
+      () => {},
+    );
     apiGet<{ data: LinkableAdvance[] }>('/advances/linkable').then(
       (r) => setLinkable(r.data),
       () => {},
@@ -166,6 +174,7 @@ export function VoucherForm() {
     setVoucher(v);
     setPurpose(v.purpose ?? '');
     setAdvanceId(v.advance?.id ?? '');
+    setProjectId(v.project?.id ?? '');
     setLines(fromVoucher(v));
   }
 
@@ -232,11 +241,13 @@ export function VoucherForm() {
             version: voucher.version,
             purpose,
             advanceId: advanceId || null,
+            projectId: projectId || null,
             lines: input,
           })
         : await apiPost<VoucherDetail>('/vouchers', {
             purpose,
             advanceId: advanceId || null,
+            projectId: projectId || null,
             lines: input,
           });
       load(saved);
@@ -409,6 +420,27 @@ export function VoucherForm() {
                 autoFocus={!voucher}
               />
             </Field>
+            {(projects.length > 0 || projectId) && (
+              <Field
+                label="Project"
+                error={err('projectId')}
+                hint="The company project this expense was for. Leave it as “No project” for general expenses."
+              >
+                <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+                  <option value="">No project</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {projectLabel(p)}
+                    </option>
+                  ))}
+                  {projectId && !projects.some((p) => p.id === projectId) && (
+                    <option value={projectId}>
+                      {voucher?.project?.name ?? 'Project'} (closed)
+                    </option>
+                  )}
+                </select>
+              </Field>
+            )}
             {(linkable.length > 0 || advanceId) && (
               <Field
                 label="Settle against an advance"
@@ -638,6 +670,17 @@ export function VoucherForm() {
             <dl className="details">
               <dt>Purpose</dt>
               <dd>{purpose || '—'}</dd>
+              {projectId && (
+                <>
+                  <dt>Project</dt>
+                  <dd>
+                    {(() => {
+                      const p = projects.find((x) => x.id === projectId);
+                      return p ? projectLabel(p) : voucher.project?.name;
+                    })()}
+                  </dd>
+                </>
+              )}
               {advanceId && (
                 <>
                   <dt>Advance</dt>
@@ -741,6 +784,7 @@ function describePath(path: string) {
   if (m) return `Expense ${Number(m[1]) + 1}`;
   if (path === 'purpose') return 'Purpose';
   if (path === 'advanceId') return 'Advance';
+  if (path === 'projectId') return 'Project';
   return 'Voucher';
 }
 

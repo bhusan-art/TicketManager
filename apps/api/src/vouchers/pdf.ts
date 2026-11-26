@@ -90,10 +90,12 @@ export function renderVoucherPdf(v: VoucherDetail): Promise<Buffer> {
     ['Department', v.department?.name ?? '-'],
     ['Reporting manager', v.manager?.name ?? '-'],
     ['Submitted', when(v.submittedAt)],
+    ['Project', v.project?.name ?? '-'],
   ];
   const col = width / 2;
   const top = doc.y;
-  doc.rect(left, top, width, 70).fill(SHADE);
+  const boxHeight = Math.ceil(facts.length / 2) * 20 + 10;
+  doc.rect(left, top, width, boxHeight).fill(SHADE);
   facts.forEach(([label, value], i) => {
     const x = left + 10 + (i % 2) * col;
     const y = top + 8 + Math.floor(i / 2) * 20;
@@ -104,7 +106,7 @@ export function renderVoucherPdf(v: VoucherDetail): Promise<Buffer> {
       .fontSize(9)
       .text(value, x, y + 9, { width: col - 20, lineBreak: false, ellipsis: true });
   });
-  doc.y = top + 80;
+  doc.y = top + boxHeight + 10;
   doc.fillColor(MUTED).font('Helvetica').fontSize(8).text('Purpose', left);
   doc
     .fillColor(INK)

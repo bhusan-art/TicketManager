@@ -11,12 +11,22 @@ export type Routes = Record<string, Handler>;
 
 /** Mocks fetch with handlers keyed by "METHOD /path" (path without /api/v1 and query). */
 export function mockApi(routes: Routes) {
-  const calls: { key: string; body: unknown; headers: Record<string, string> }[] = [];
+  const calls: {
+    key: string;
+    query: string;
+    body: unknown;
+    headers: Record<string, string>;
+  }[] = [];
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     const path = url.replace(/^\/api\/v1/, '').split('?')[0];
     const key = `${init?.method ?? 'GET'} ${path}`;
     const body = typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body;
-    calls.push({ key, body, headers: (init?.headers ?? {}) as Record<string, string> });
+    calls.push({
+      key,
+      query: url.split('?')[1] ?? '',
+      body,
+      headers: (init?.headers ?? {}) as Record<string, string>,
+    });
     const handler = routes[key];
     const result = handler
       ? handler(body)
@@ -39,6 +49,7 @@ export function makeUser(overrides: Partial<AuthUser> = {}): AuthUser {
     employeeCode: 'EMP-1024',
     designation: 'Engineer',
     whatsappNumber: null,
+    employmentType: 'regular',
     roles: ['employee'],
     activeRole: 'employee',
     department: { id: 'd1', name: 'Engineering' },

@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router';
 import { RequireAuth, RequireRole } from './auth/guards';
 import { Layout } from './components/Layout';
 import { Categories } from './pages/admin/Categories';
+import { Projects } from './pages/admin/Projects';
 import { EmailLog } from './pages/admin/EmailLog';
 import { Settings } from './pages/admin/Settings';
 import { Notifications } from './pages/notifications/Notifications';
@@ -136,6 +137,14 @@ export function App() {
             element={
               <RequireRole roles={['admin']}>
                 <Categories />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="admin/projects"
+            element={
+              <RequireRole roles={['admin']}>
+                <Projects />
               </RequireRole>
             }
           />
