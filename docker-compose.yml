@@ -1,7 +1,7 @@
 # TicketManager: the whole stack on one machine.
 #   cp .env.example .env    (then change the secrets)
 #   docker compose up -d --build
-# App: http://localhost:8080   Mail catcher: http://localhost:8025
+# App: http://localhost:${WEB_PORT} (9080 in .env.example)   Mail catcher: http://localhost:8025
 
 name: ticketmanager
 
@@ -24,7 +24,7 @@ services:
       timeout: 3s
       retries: 20
     ports:
-      - '127.0.0.1:5432:5432'
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
 
   redis:
     image: redis:7.4-alpine
@@ -58,7 +58,13 @@ services:
       PORT: 4000
       LOG_LEVEL: ${LOG_LEVEL:-info}
       APP_VERSION: ${APP_VERSION:-0.1.0}
-      CORS_ORIGIN: ${PUBLIC_URL:-http://localhost:8080}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-Administrator}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       DATABASE_URL: postgres://ticketmanager:${POSTGRES_PASSWORD:-ticketmanager}@postgres:5432/ticketmanager
       REDIS_URL: redis://redis:6379
     depends_on:

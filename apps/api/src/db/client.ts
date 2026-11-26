@@ -28,3 +28,8 @@ export function pgErrorCode(err: unknown): string | undefined {
   }
   return undefined;
 }
+
+/** A transaction handle, as passed to `db.transaction(async (tx) => …)`. */
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+/** Functions that work both inside and outside a transaction take this. */
+export type DbOrTx = Db | Tx;
