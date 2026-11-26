@@ -8,6 +8,7 @@ import { asc, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { AuthContext } from '../auth/middleware.js';
 import type { DbOrTx } from '../db/client.js';
+import { getVoucherPayments, voucherMoney } from '../payments/queries.js';
 import { getVoucherEvents } from './events.js';
 import { permissions, waitingOn } from './workflow.js';
 import {
@@ -137,6 +138,10 @@ export async function getVoucherDetail(
     waitingOn: waitingOn(v, row.managerName),
     lines: await getVoucherLines(db, v.id),
     events: await getVoucherEvents(db, v.id),
+    payments: await getVoucherPayments(db, v.id),
+    paidPaise: v.paidPaise,
+    outstandingPaise: voucherMoney(v).outstandingPaise,
+    paidAt: v.paidAt?.toISOString() ?? null,
     can: permissions(auth, v),
   };
 }

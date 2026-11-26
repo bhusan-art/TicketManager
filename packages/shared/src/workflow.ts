@@ -56,6 +56,7 @@ export const VOUCHER_ACTIONS = [
   'reject',
   'answer',
   'comment',
+  'pay',
 ] as const;
 export type VoucherAction = (typeof VOUCHER_ACTIONS)[number];
 export type VoucherPermissions = Record<VoucherAction, boolean>;
@@ -113,6 +114,8 @@ export const VOUCHER_EVENT_TYPES = [
   'cancelled',
   'comment',
   'attachment_added',
+  'payment_recorded',
+  'payment_reversed',
 ] as const;
 export type VoucherEventType = (typeof VOUCHER_EVENT_TYPES)[number];
 

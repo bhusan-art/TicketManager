@@ -3,8 +3,8 @@
 Expense management web app: employees submit expense vouchers, managers approve them, and Accounts
 verifies and pays them. Built with PostgreSQL, Express, React and Node (TypeScript throughout).
 
-Built so far: **Phase 0** (foundation) and **Phase 1** (sign-in, users, roles, departments).
-Expense vouchers and approvals arrive in Phases 2 and 3.
+Built so far: Phases 0–4: foundation, sign-in and roles, expense vouchers, approvals, and
+payments with the Accounts dashboard and reports. Advances and settlements arrive in Phase 5.
 
 ## Run it on your computer (Windows, VS Code)
 
@@ -171,9 +171,20 @@ HTTPS (Google refuses private IP addresses).
 - Chain: an employee's claim goes to their reporting manager, then Accounts. Managers' and directors' own claims go straight to Accounts. An Accounts user's own claim goes to the Director. Nobody can review their own claim, whatever roles they hold.
 - At each stage the approver can **approve** (optionally lowering line amounts, with a note), **query** (the employee answers and it comes back to the same approver; they may add bills but not edit lines), **return** (the employee edits and resubmits, and review starts again from the manager) or **reject** (final).
 - Accounts opening a voucher marks it "Under verification"; from then on the employee can't cancel it.
-- Final approval sets the payment status to "Payment pending" for Phase 4.
+- Final approval sets the payment status to "Payment pending" and the voucher joins the payment queue.
 - The rules live in `apps/api/src/vouchers/workflow.ts` and `test/workflow.test.ts` checks every status, caller and action.
 - Every step and comment goes on the voucher's activity timeline (`voucher_events`). Queues: `GET /api/v1/approvals?view=pending|queried|done`, based on the active role.
+
+## Payments and reports
+
+- **Payments** (Accounts) lists approved claims, oldest approval first: _To pay_, _Paid_ and _All approved_. Search works on voucher number, employee name or code, and payment reference.
+- Accounts records a payment on the voucher: amount, date, mode (bank transfer, UPI, cheque, cash) and the UTR or cheque number (cash needs none). Pay less than the outstanding amount to record an instalment; the voucher shows **Partially paid** until the last instalment clears it, then **Paid**. Payments get numbers like `PAY-2026-00001`.
+- Overpayment is blocked three times: the form, the API, and a database check (`paid_paise <= approved_total_paise`). A UTR can't be recorded twice for the same mode. The date can't be in the future or before the approval. Nobody can pay their own claim.
+- A mistaken payment is **reversed** with a reason, never deleted. The row stays, crossed out, stops counting as paid, and its UTR can be used again.
+- The employee sees every payment and its reference on their voucher.
+- **Dashboard** (Accounts, Director, Admin): claims to verify, approved but not paid, paid and claimed this month, unpaid claims by age (0–7, 8–30, 31–60, 60+ days since approval), and approved vs paid for the last six months.
+- **Reports** (Accounts, Director, Admin): spend by department, employee and category for a date range (by submission date, Indian time), plus the _Approved, not paid_ list. Each table downloads as CSV that opens cleanly in Excel.
+- APIs: `POST /vouchers/:id/payments`, `POST /vouchers/:id/payments/:paymentId/reverse`, `GET /payments`, `GET /accounts/dashboard`, `GET /reports`, `GET /reports/liability`.
 
 ## Database
 

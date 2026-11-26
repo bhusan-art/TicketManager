@@ -14,6 +14,8 @@ import { healthRouter, type HealthCheck } from './routes/health.js';
 import type { Services } from './services.js';
 import { adminRouter } from './users/adminRoutes.js';
 import { categoriesRouter } from './categories/routes.js';
+import { paymentQueueRouter, voucherPaymentsRouter } from './payments/routes.js';
+import { accountsRouter, reportsRouter } from './reports/routes.js';
 import { approvalsRouter, voucherReviewRouter } from './vouchers/reviewRoutes.js';
 import { vouchersRouter } from './vouchers/routes.js';
 
@@ -69,6 +71,10 @@ export function createApp(options: AppOptions) {
     api.use('/vouchers', vouchersRouter(services));
     api.use('/vouchers', voucherReviewRouter(services));
     api.use('/approvals', approvalsRouter(services));
+    api.use('/vouchers', voucherPaymentsRouter(services));
+    api.use('/payments', paymentQueueRouter(services));
+    api.use('/accounts', accountsRouter(services));
+    api.use('/reports', reportsRouter(services));
   }
   for (const [path, router] of Object.entries(options.routers ?? {})) {
     api.use(path, router);

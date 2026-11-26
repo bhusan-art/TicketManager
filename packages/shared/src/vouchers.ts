@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Ref } from './auth.js';
+import type { Payment } from './payments.js';
 import type { VoucherEvent, VoucherPermissions } from './workflow.js';
 import { MAX_AMOUNT_PAISE } from './money.js';
 
@@ -263,6 +264,12 @@ export interface VoucherDetail {
   /** Who holds the voucher now, e.g. "Amit Verma" or "Accounts". Null when nobody does. */
   waitingOn: string | null;
   events: VoucherEvent[];
+  /** Instalments, newest last, reversed ones included. */
+  payments: Payment[];
+  paidPaise: number;
+  /** Approved but not yet paid. */
+  outstandingPaise: number;
+  paidAt: string | null;
   /** What the caller may do now. */
   can: VoucherPermissions;
 }

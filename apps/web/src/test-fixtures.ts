@@ -11,6 +11,7 @@ export const perms = (allowed: Partial<VoucherPermissions>): VoucherPermissions 
   reject: false,
   answer: false,
   comment: false,
+  pay: false,
   ...allowed,
 });
 
@@ -70,6 +71,10 @@ export const voucher = (over: Partial<VoucherDetail> = {}): VoucherDetail => ({
   accountsReviewStartedAt: null,
   waitingOn: 'Employee',
   events: [],
+  payments: [],
+  paidPaise: 0,
+  outstandingPaise: 0,
+  paidAt: null,
   can: perms({ edit: true, submit: true, delete: true }),
   ...over,
 });

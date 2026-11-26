@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm';
 import type { DbOrTx } from '../db/client.js';
 import { documentCounters } from '../db/schema.js';
 
-export type DocumentKind = 'EXP' | 'ADV';
+export type DocumentKind = 'EXP' | 'ADV' | 'PAY';
 
 export function currentYear(now = new Date()): number {
   return Number(

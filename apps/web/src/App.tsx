@@ -7,6 +7,8 @@ import { UserForm } from './pages/admin/UserForm';
 import { Users } from './pages/admin/Users';
 import { ApprovalQueue } from './pages/approvals/ApprovalQueue';
 import { Dashboard } from './pages/Dashboard';
+import { PaymentQueue } from './pages/payments/PaymentQueue';
+import { Reports } from './pages/reports/Reports';
 import { MyExpenses } from './pages/expenses/MyExpenses';
 import { VoucherDetails } from './pages/expenses/VoucherDetails';
 import { VoucherForm } from './pages/expenses/VoucherForm';
@@ -51,8 +53,23 @@ export function App() {
             }
           />
           <Route path="verification/:id" element={<VoucherDetails />} />
-          <Route path="payments" element={<Placeholder title="Payments" phase={4} />} />
-          <Route path="reports" element={<Placeholder title="Reports" phase={4} />} />
+          <Route
+            path="payments"
+            element={
+              <RequireRole roles={['accounts']}>
+                <PaymentQueue />
+              </RequireRole>
+            }
+          />
+          <Route path="payments/:id" element={<VoucherDetails />} />
+          <Route
+            path="reports"
+            element={
+              <RequireRole roles={['accounts', 'director', 'admin']}>
+                <Reports />
+              </RequireRole>
+            }
+          />
           <Route path="notifications" element={<Placeholder title="Notifications" phase={6} />} />
           <Route path="profile" element={<Profile />} />
           <Route

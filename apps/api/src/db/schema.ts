@@ -20,6 +20,7 @@ import {
 import {
   APPROVAL_STATUSES,
   CATEGORY_STATUSES,
+  PAYMENT_MODES,
   PAYMENT_STATUSES,
   ROLES,
   USER_STATUSES,
@@ -237,6 +238,10 @@ export const vouchers = pgTable(
     approvedTotalPaise: bigint('approved_total_paise', { mode: 'number' }),
     /** When the voucher reached a final decision (approved or rejected). */
     decidedAt: tstz('decided_at'),
+    /** Sum of payments that were not reversed. Never more than approvedTotalPaise. */
+    paidPaise: paise('paid_paise'),
+    /** When the last instalment cleared the approved total. */
+    paidAt: tstz('paid_at'),
     cancelledAt: tstz('cancelled_at'),
     cancelReason: text('cancel_reason'),
     /** Optimistic concurrency: every change bumps it, and writers must send the version they read. */
@@ -248,6 +253,11 @@ export const vouchers = pgTable(
     index('vouchers_employee_idx').on(t.employeeId, t.createdAt.desc()),
     index('vouchers_status_idx').on(t.approvalStatus),
     check('vouchers_total_non_negative', sql`${t.totalPaise} >= 0`),
+    // The database itself refuses an overpayment.
+    check(
+      'vouchers_paid_within_approved',
+      sql`${t.paidPaise} >= 0 and ${t.paidPaise} <= coalesce(${t.approvedTotalPaise}, 0)`,
+    ),
   ],
 );
 
@@ -334,5 +344,46 @@ export const voucherEvents = pgTable(
   (t) => [
     index('voucher_events_voucher_idx').on(t.voucherId, t.id),
     index('voucher_events_actor_idx').on(t.actorId, t.type),
+  ],
+);
+
+/**
+ * Payments to employees against approved vouchers, one row per instalment. Rows are never
+ * deleted; a mistaken payment is reversed (reversed_at set) and stops counting.
+ */
+export const payments = pgTable(
+  'payments',
+  {
+    id: pk(),
+    number: text('number').notNull().unique(),
+    voucherId: uuid('voucher_id')
+      .notNull()
+      .references(() => vouchers.id),
+    amountPaise: bigint('amount_paise', { mode: 'number' }).notNull(),
+    paidOn: date('paid_on', { mode: 'string' }).notNull(),
+    mode: text('mode', { enum: PAYMENT_MODES }).notNull(),
+    /** UTR, UPI reference or cheque number. */
+    reference: text('reference'),
+    note: text('note'),
+    recordedBy: uuid('recorded_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+    reversedAt: tstz('reversed_at'),
+    reversedBy: uuid('reversed_by').references(() => users.id),
+    reversalReason: text('reversal_reason'),
+  },
+  (t) => [
+    index('payments_voucher_idx').on(t.voucherId, t.createdAt),
+    index('payments_paid_on_idx').on(t.paidOn),
+    // A UTR identifies one bank transfer, so it can't pay two things (unless reversed).
+    uniqueIndex('payments_reference_active_key')
+      .on(t.mode, t.reference)
+      .where(sql`${t.reversedAt} is null and ${t.reference} is not null`),
+    check('payments_amount_positive', sql`${t.amountPaise} > 0`),
+    check(
+      'payments_reversal_complete',
+      sql`(${t.reversedAt} is null) = (${t.reversedBy} is null) and (${t.reversedAt} is null) = (${t.reversalReason} is null)`,
+    ),
   ],
 );

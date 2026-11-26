@@ -2,6 +2,7 @@ import type { HealthResponse } from '@ticketmanager/shared';
 import { useEffect, useState } from 'react';
 import { ROLE_LABELS } from '@ticketmanager/shared';
 import { useUser } from '../auth/AuthContext';
+import { AccountsOverview } from '../components/AccountsOverview';
 import { getHealth } from '../lib/api';
 
 type State =
@@ -39,10 +40,11 @@ export function Dashboard() {
       <h1>
         {greeting(new Date().getHours())}, {user.name.split(' ')[0]}
       </h1>
-      <p className="muted">
-        You are viewing TicketManager as {ROLE_LABELS[user.activeRole]}. Expense claims arrive in
-        Phase 2.
-      </p>
+      <p className="muted">You are viewing TicketManager as {ROLE_LABELS[user.activeRole]}.</p>
+
+      {['accounts', 'director', 'admin'].includes(user.activeRole) && (
+        <AccountsOverview showLinks={user.activeRole === 'accounts'} />
+      )}
 
       <div className="card" aria-live="polite">
         <h2>System status</h2>

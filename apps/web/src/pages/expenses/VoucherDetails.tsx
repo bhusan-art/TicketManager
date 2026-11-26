@@ -1,17 +1,18 @@
-import {
-  PAYMENT_STATUS_LABELS,
-  formatRupees,
-  rupeesInWords,
-  type VoucherDetail,
-} from '@ticketmanager/shared';
+import { formatRupees, rupeesInWords, type VoucherDetail } from '@ticketmanager/shared';
 import { Download, FileText, Paperclip, Pencil, Trash2, XCircle } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { Field, FormError } from '../../components/forms';
 import { AnswerPanel } from '../../components/voucher/AnswerPanel';
+import { PaymentPanel } from '../../components/voucher/PaymentPanel';
 import { ReviewPanel } from '../../components/voucher/ReviewPanel';
 import { Timeline } from '../../components/voucher/Timeline';
-import { VoucherStatus, formatBytes, formatDay } from '../../components/VoucherStatus';
+import {
+  PaymentStatusPill,
+  VoucherStatus,
+  formatBytes,
+  formatDay,
+} from '../../components/VoucherStatus';
 import { ApiError, apiDelete, apiGet, apiPost, fetchFile } from '../../lib/api';
 
 /** Where the page was opened from: the employee's list or an approver's queue. */
@@ -19,6 +20,7 @@ const BACK: Record<string, { to: string; label: string }> = {
   expenses: { to: '/expenses', label: 'My expenses' },
   approvals: { to: '/approvals', label: 'Approvals' },
   verification: { to: '/verification', label: 'Verification' },
+  payments: { to: '/payments', label: 'Payments' },
 };
 
 export function VoucherDetails() {
@@ -208,6 +210,9 @@ export function VoucherDetails() {
       )}
       {v.can.answer && <AnswerPanel voucher={v} onChange={setVoucher} onDone={done} />}
       {v.can.approve && <ReviewPanel key={v.version} voucher={v} onDone={done} />}
+      {v.paymentStatus !== 'not_due' && (
+        <PaymentPanel key={`pay-${v.version}`} voucher={v} onDone={done} />
+      )}
 
       {cancelling && (
         <form className="card wide" onSubmit={cancel} noValidate>
@@ -255,7 +260,9 @@ export function VoucherDetails() {
             <dt>Waiting on</dt>
             <dd>{v.waitingOn ?? 'Nobody'}</dd>
             <dt>Payment</dt>
-            <dd>{PAYMENT_STATUS_LABELS[v.paymentStatus]}</dd>
+            <dd>
+              <PaymentStatusPill status={v.paymentStatus} />
+            </dd>
             <dt>Total</dt>
             <dd>
               <strong>{formatRupees(v.totalPaise)}</strong>
