@@ -104,7 +104,7 @@ export function AnswerPanel({
           ref={fileInput}
           type="file"
           hidden
-          aria-label="Attach a bill to your answer"
+          aria-label="Choose a bill file"
           accept={Object.keys(ATTACHMENT_TYPES).join(',')}
           onChange={(e) => {
             const file = e.target.files?.[0];

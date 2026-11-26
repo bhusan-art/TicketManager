@@ -1200,3 +1200,7 @@ h1.with-pill {
 .wrap {
   white-space: normal;
 }
+
+.detail-grid {
+  align-items: start;
+}
