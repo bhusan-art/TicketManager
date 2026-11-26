@@ -28,6 +28,7 @@ import {
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { useUser } from '../../auth/AuthContext';
+import { FollowUp } from '../../components/FollowUp';
 import { Field, FormError } from '../../components/forms';
 import {
   AdvanceStatusPill,
@@ -40,6 +41,7 @@ import { ApiError, api, apiDelete, apiGet, idempotencyKey } from '../../lib/api'
 type Send = (path: string, body: object, notice: string, idempotent?: boolean) => Promise<boolean>;
 
 export function AdvanceDetails() {
+  const user = useUser();
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -198,6 +200,18 @@ export function AdvanceDetails() {
       )}
 
       {money && <SettlementPanel advance={a} send={send} busy={busy} errors={fieldErrors} />}
+
+      {a.employee.id === user.id && (
+        <FollowUp<AdvanceDetail>
+          path={`/advances/${a.id}`}
+          version={a.version}
+          onSent={(next, message) => {
+            setAdvance(next);
+            setNotice(message);
+            window.scrollTo({ top: 0 });
+          }}
+        />
+      )}
 
       {a.can.cancel && <CancelAdvance advance={a} send={send} busy={busy} errors={fieldErrors} />}
 
@@ -830,6 +844,8 @@ function describe(e: AdvanceEvent): string {
       return `Reversed ${String(e.meta?.label ?? 'an entry').toLowerCase()} of ${amount('amountPaise')}`;
     case 'closed':
       return 'Closed the settlement';
+    case 'followed_up':
+      return `Sent a reminder to ${String(e.meta?.waitingOn ?? 'the approver')}`;
   }
 }
 

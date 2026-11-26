@@ -52,6 +52,8 @@ function describe(e: VoucherEvent, v: VoucherDetail): string {
     }
     case 'payment_reversed':
       return `Reversed payment ${String(e.meta?.number ?? '')} of ${formatRupees(Number(e.meta?.amountPaise ?? 0))}`;
+    case 'followed_up':
+      return `Sent a reminder to ${String(e.meta?.waitingOn ?? 'the approver')}`;
   }
 }
 
@@ -63,6 +65,7 @@ const TONE: Partial<Record<VoucherEvent['type'], string>> = {
   returned: 'warn',
   comment: 'quiet',
   attachment_added: 'quiet',
+  followed_up: 'quiet',
   payment_recorded: 'good',
   payment_reversed: 'bad',
 };

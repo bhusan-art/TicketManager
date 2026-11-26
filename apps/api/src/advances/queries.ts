@@ -22,6 +22,7 @@ import {
   users,
   vouchers,
 } from '../db/schema.js';
+import { notifyAdvanceEvent } from '../notifications/advanceNotices.js';
 import { advancePermissions, advanceWaitingOn } from './workflow.js';
 
 const employees = alias(users, 'employee');
@@ -125,7 +126,8 @@ export interface NewAdvanceEvent {
   meta?: Record<string, unknown> | null;
 }
 
-export async function recordAdvanceEvent(db: Pick<DbOrTx, 'insert'>, e: NewAdvanceEvent) {
+/** Adds a timeline entry and notifies the people concerned. Call after the advance has changed. */
+export async function recordAdvanceEvent(db: DbOrTx, e: NewAdvanceEvent) {
   await db.insert(advanceEvents).values({
     advanceId: e.advanceId,
     type: e.type,
@@ -136,6 +138,7 @@ export async function recordAdvanceEvent(db: Pick<DbOrTx, 'insert'>, e: NewAdvan
     message: e.message ?? null,
     meta: e.meta ?? null,
   });
+  await notifyAdvanceEvent(db, e);
 }
 
 async function getAdvanceEvents(db: DbOrTx, advanceId: string): Promise<AdvanceEvent[]> {

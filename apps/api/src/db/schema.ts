@@ -23,6 +23,9 @@ import {
   ADVANCE_TRANSACTION_KINDS,
   APPROVAL_STATUSES,
   CATEGORY_STATUSES,
+  EMAIL_KINDS,
+  EMAIL_STATUSES,
+  NOTIFICATION_ENTITIES,
   PAYMENT_MODES,
   PAYMENT_STATUSES,
   ROLES,
@@ -507,3 +510,67 @@ export const settings = pgTable('settings', {
   value: jsonb('value').notNull(),
   updatedAt: updatedAt(),
 });
+
+/** In-app notifications: one row per person per event. Written in the workflow's transaction. */
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: pk(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    body: text('body'),
+    link: text('link'),
+    entityType: text('entity_type', { enum: NOTIFICATION_ENTITIES }),
+    entityId: uuid('entity_id'),
+    /** The event that caused it, e.g. "queried". */
+    eventType: text('event_type'),
+    actorId: uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
+    /** The role the person needs active to act on it; the app switches to it when opened. */
+    role: text('role', { enum: ROLES }),
+    createdAt: createdAt(),
+    readAt: tstz('read_at'),
+  },
+  (t) => [
+    index('notifications_user_idx').on(t.userId, t.createdAt.desc()),
+    index('notifications_unread_idx')
+      .on(t.userId)
+      .where(sql`${t.readAt} is null`),
+  ],
+);
+
+/**
+ * Every email the app sends, written in the same transaction as the change that causes it. The
+ * worker delivers due rows and retries failures with backoff; this table is the delivery log.
+ */
+export const emailOutbox = pgTable(
+  'email_outbox',
+  {
+    id: pk(),
+    kind: text('kind', { enum: EMAIL_KINDS }).notNull(),
+    to: text('to').array().notNull(),
+    cc: text('cc')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    subject: text('subject').notNull(),
+    text: text('text').notNull(),
+    /** App path the worker turns into a full link (it knows the public URL). */
+    link: text('link'),
+    status: text('status', { enum: EMAIL_STATUSES }).notNull().default('pending'),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: tstz('next_attempt_at').notNull().defaultNow(),
+    lastError: text('last_error'),
+    messageId: text('message_id'),
+    sentAt: tstz('sent_at'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index('email_outbox_due_idx')
+      .on(t.nextAttemptAt)
+      .where(sql`${t.status} = 'pending'`),
+    index('email_outbox_created_idx').on(t.createdAt.desc()),
+  ],
+);

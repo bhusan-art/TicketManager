@@ -7,6 +7,7 @@ import {
   describeWithDb,
   fakeGoogle,
   makeUser,
+  outbox,
   signIn,
   TEST_PASSWORD,
   testServices,
@@ -190,7 +191,6 @@ describeWithDb('passwords', () => {
 
   it('emails a reset link only to real, active accounts and always answers 204', async () => {
     const user = await makeUser(t.db);
-    ctx.mailer.sent.length = 0;
     const known = await request(ctx.app)
       .post('/api/v1/auth/password/forgot')
       .send({ email: user.email });
@@ -199,17 +199,17 @@ describeWithDb('passwords', () => {
       .send({ email: 'ghost@example.com' });
     expect(known.status).toBe(204);
     expect(unknown.status).toBe(204);
-    expect(ctx.mailer.sent).toHaveLength(1);
-    expect(ctx.mailer.sent[0]!.to).toBe(user.email);
-    expect(ctx.mailer.sent[0]!.text).toContain('http://localhost:9080/reset-password?token=');
+    const mail = await outbox(t.db);
+    expect(mail).toHaveLength(1);
+    expect(mail[0]!.to).toEqual([user.email]);
+    expect(mail[0]!.text).toContain('http://localhost:9080/reset-password?token=');
   });
 
   it('resets the password with the link once, and signs out old sessions', async () => {
     const user = await makeUser(t.db);
     const old = await signIn(ctx.app, user.email);
-    ctx.mailer.sent.length = 0;
     await request(ctx.app).post('/api/v1/auth/password/forgot').send({ email: user.email });
-    const token = tokenFrom(ctx.mailer.sent[0]!.text);
+    const token = tokenFrom((await outbox(t.db))[0]!.text);
 
     const weak = await request(ctx.app)
       .post('/api/v1/auth/password/reset')

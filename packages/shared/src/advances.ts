@@ -268,6 +268,7 @@ export const ADVANCE_EVENT_TYPES = [
   'top_up_recorded',
   'transaction_reversed',
   'closed',
+  'followed_up',
 ] as const;
 export type AdvanceEventType = (typeof ADVANCE_EVENT_TYPES)[number];
 

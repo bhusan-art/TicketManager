@@ -7,7 +7,7 @@ import { createDb, runMigrations } from './db/client.js';
 import { pruneIdempotencyKeys } from './http/middleware/idempotency.js';
 import { checks, createRedis } from './lib/dependencies.js';
 import { createLogger } from './lib/logger.js';
-import { createQueueMailer } from './mail/mailer.js';
+import { createOutboxMailer, createWorkerWaker } from './mail/mailer.js';
 
 const config = loadConfig();
 const logger = createLogger(config.LOG_LEVEL, config.NODE_ENV === 'development');
@@ -18,7 +18,10 @@ logger.info('Database migrations applied');
 await bootstrapAdmin(db, config, logger);
 
 const redis = createRedis(config.REDIS_URL);
-const mailer = createQueueMailer(config.REDIS_URL);
+const waker = createWorkerWaker(config.REDIS_URL, (err) =>
+  logger.warn({ err }, 'Could not wake the worker; mail goes out on its next sweep'),
+);
+const mailer = createOutboxMailer(db, waker.wake);
 const google =
   config.GOOGLE_CLIENT_ID && config.GOOGLE_CLIENT_SECRET
     ? createGoogleClient({
@@ -63,7 +66,7 @@ async function shutdown(signal: string) {
   logger.info({ signal }, 'Shutting down');
   clearInterval(pruneTimer);
   server.close();
-  await Promise.allSettled([pool.end(), redis.quit(), mailer.close()]);
+  await Promise.allSettled([pool.end(), redis.quit(), waker.close()]);
   process.exit(0);
 }
 process.on('SIGTERM', () => void shutdown('SIGTERM'));

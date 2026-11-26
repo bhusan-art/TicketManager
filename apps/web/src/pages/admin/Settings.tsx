@@ -3,12 +3,13 @@ import {
   paiseToInput,
   parseRupees,
   type AdvanceSettings,
+  type NotificationSettings,
 } from '@ticketmanager/shared';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Field, FormError } from '../../components/forms';
 import { ApiError, api, apiGet } from '../../lib/api';
 
-/** Company policies. For now: the largest advance anyone may request. */
+/** Company policies: the advance limit, workflow emails and the follow-up cooldown. */
 export function Settings() {
   const [current, setCurrent] = useState<AdvanceSettings | null>(null);
   const [limit, setLimit] = useState('');
@@ -89,6 +90,96 @@ export function Settings() {
           </button>
         </div>
       </form>
+      <NotificationSettingsForm />
     </section>
+  );
+}
+
+function NotificationSettingsForm() {
+  const [current, setCurrent] = useState<NotificationSettings | null>(null);
+  const [emailEnabled, setEmailEnabled] = useState(true);
+  const [hours, setHours] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<string | undefined>();
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    apiGet<NotificationSettings>('/notifications/settings').then(
+      (s) => {
+        setCurrent(s);
+        setEmailEnabled(s.emailEnabled);
+        setHours(String(s.followUpCooldownHours));
+      },
+      (e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not load settings'),
+    );
+  }, []);
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setFieldError(undefined);
+    setNotice(null);
+    const cooldown = Number(hours);
+    if (!Number.isInteger(cooldown) || cooldown < 1 || cooldown > 720) {
+      setFieldError('Enter whole hours from 1 to 720');
+      return;
+    }
+    setBusy(true);
+    try {
+      const saved = await api<NotificationSettings>('PUT', '/admin/settings/notifications', {
+        emailEnabled,
+        followUpCooldownHours: cooldown,
+      });
+      setCurrent(saved);
+      setNotice(
+        `Saved. Workflow emails are ${saved.emailEnabled ? 'on' : 'off'}; reminders can be sent every ${saved.followUpCooldownHours} hours.`,
+      );
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not save');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="card form-grid" onSubmit={save} noValidate>
+      <h2>Notifications</h2>
+      {notice && (
+        <div className="notice" role="status">
+          {notice}
+        </div>
+      )}
+      <FormError message={error} />
+      <label className="check full">
+        <input
+          type="checkbox"
+          checked={emailEnabled}
+          disabled={!current}
+          onChange={(e) => setEmailEnabled(e.target.checked)}
+        />
+        Email people about workflow steps
+      </label>
+      <p className="muted small full">
+        In-app notifications are always on. Invitations and password resets are always emailed.
+      </p>
+      <Field
+        label="Hours between follow-up reminders"
+        error={fieldError}
+        hint="How long an employee waits before reminding whoever holds their claim or advance, counted from when it reached them or from the last reminder."
+      >
+        <input
+          inputMode="numeric"
+          value={hours}
+          disabled={!current}
+          onChange={(e) => setHours(e.target.value)}
+        />
+      </Field>
+      <div className="actions">
+        <button type="submit" className="btn btn-primary" disabled={busy || !current}>
+          Save
+        </button>
+      </div>
+    </form>
   );
 }

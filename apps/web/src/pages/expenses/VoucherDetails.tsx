@@ -2,11 +2,13 @@ import { formatRupees, rupeesInWords, type VoucherDetail } from '@ticketmanager/
 import { Download, FileText, Paperclip, Pencil, Trash2, XCircle } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
+import { useUser } from '../../auth/AuthContext';
 import { Field, FormError } from '../../components/forms';
 import { AnswerPanel } from '../../components/voucher/AnswerPanel';
 import { PaymentPanel } from '../../components/voucher/PaymentPanel';
 import { ReviewPanel } from '../../components/voucher/ReviewPanel';
 import { Timeline } from '../../components/voucher/Timeline';
+import { FollowUp } from '../../components/FollowUp';
 import {
   PaymentStatusPill,
   VoucherStatus,
@@ -24,6 +26,7 @@ const BACK: Record<string, { to: string; label: string }> = {
 };
 
 export function VoucherDetails() {
+  const user = useUser();
   const { id } = useParams();
   const section = useLocation().pathname.split('/')[1] ?? 'expenses';
   const back = BACK[section] ?? BACK.expenses!;
@@ -207,6 +210,9 @@ export function VoucherDetails() {
           <strong>Rejected by {lastStep.actor?.name ?? 'an approver'}</strong>
           <blockquote className="event-message rejected">{lastStep.message}</blockquote>
         </div>
+      )}
+      {v.employee.id === user.id && (
+        <FollowUp<VoucherDetail> path={`/vouchers/${v.id}`} version={v.version} onSent={done} />
       )}
       {v.can.answer && <AnswerPanel voucher={v} onChange={setVoucher} onDone={done} />}
       {v.can.approve && <ReviewPanel key={v.version} voucher={v} onDone={done} />}

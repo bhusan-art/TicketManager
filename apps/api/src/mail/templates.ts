@@ -1,9 +1,10 @@
-import type { EmailJob } from '@ticketmanager/shared';
+import type { OutgoingEmail } from './mailer.js';
 
 const footer = '\n\nIf you did not expect this email, you can ignore it.\n\nTicketManager';
 
-export function inviteEmail(to: string, name: string, link: string): EmailJob {
+export function inviteEmail(to: string, name: string, link: string): OutgoingEmail {
   return {
+    kind: 'invite',
     to,
     subject: 'Your TicketManager account',
     text:
@@ -13,8 +14,9 @@ export function inviteEmail(to: string, name: string, link: string): EmailJob {
   };
 }
 
-export function resetEmail(to: string, name: string, link: string): EmailJob {
+export function resetEmail(to: string, name: string, link: string): OutgoingEmail {
   return {
+    kind: 'password_reset',
     to,
     subject: 'Reset your TicketManager password',
     text:

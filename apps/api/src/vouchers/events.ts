@@ -2,6 +2,7 @@ import type { ApprovalStatus, Role, VoucherEvent, VoucherEventType } from '@tick
 import { asc, eq } from 'drizzle-orm';
 import type { DbOrTx } from '../db/client.js';
 import { users, voucherEvents } from '../db/schema.js';
+import { notifyVoucherEvent } from '../notifications/voucherNotices.js';
 
 export interface NewVoucherEvent {
   voucherId: string;
@@ -14,18 +15,25 @@ export interface NewVoucherEvent {
   meta?: Record<string, unknown> | null;
 }
 
-/** Adds a timeline entry. Pass the transaction that makes the change. */
-export async function recordEvent(db: Pick<DbOrTx, 'insert'>, e: NewVoucherEvent) {
-  await db.insert(voucherEvents).values({
-    voucherId: e.voucherId,
-    type: e.type,
-    actorId: e.actorId,
-    actorRole: e.actorRole ?? null,
-    fromStatus: e.fromStatus ?? null,
-    toStatus: e.toStatus ?? null,
-    message: e.message ?? null,
-    meta: e.meta ?? null,
-  });
+/**
+ * Adds a timeline entry and notifies the people the step concerns. Pass the transaction that
+ * makes the change, after the voucher has its new status.
+ */
+export async function recordEvent(db: DbOrTx, e: NewVoucherEvent) {
+  const [row] = await db
+    .insert(voucherEvents)
+    .values({
+      voucherId: e.voucherId,
+      type: e.type,
+      actorId: e.actorId,
+      actorRole: e.actorRole ?? null,
+      fromStatus: e.fromStatus ?? null,
+      toStatus: e.toStatus ?? null,
+      message: e.message ?? null,
+      meta: e.meta ?? null,
+    })
+    .returning({ id: voucherEvents.id });
+  await notifyVoucherEvent(db, e, row!.id);
 }
 
 export async function getVoucherEvents(db: DbOrTx, voucherId: string): Promise<VoucherEvent[]> {

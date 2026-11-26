@@ -2,7 +2,9 @@ import { Route, Routes } from 'react-router';
 import { RequireAuth, RequireRole } from './auth/guards';
 import { Layout } from './components/Layout';
 import { Categories } from './pages/admin/Categories';
+import { EmailLog } from './pages/admin/EmailLog';
 import { Settings } from './pages/admin/Settings';
+import { Notifications } from './pages/notifications/Notifications';
 import { AdvanceDetails } from './pages/advances/AdvanceDetails';
 import { AdvanceForm } from './pages/advances/AdvanceForm';
 import { AdvanceList } from './pages/advances/AdvanceList';
@@ -77,7 +79,7 @@ export function App() {
               </RequireRole>
             }
           />
-          <Route path="notifications" element={<Placeholder title="Notifications" phase={6} />} />
+          <Route path="notifications" element={<Notifications />} />
           <Route path="profile" element={<Profile />} />
           <Route
             path="admin/users"
@@ -116,6 +118,14 @@ export function App() {
             element={
               <RequireRole roles={['admin']}>
                 <Categories />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="admin/emails"
+            element={
+              <RequireRole roles={['admin']}>
+                <EmailLog />
               </RequireRole>
             }
           />

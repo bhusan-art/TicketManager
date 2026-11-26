@@ -4,10 +4,10 @@ import { createAccessTokens } from '../src/auth/accessToken.js';
 import { hashPassword } from '../src/auth/crypto.js';
 import type { GoogleClient, GoogleIdentity } from '../src/auth/google.js';
 import { loadConfig } from '../src/config.js';
-import { users } from '../src/db/schema.js';
-import { createMemoryMailer } from '../src/mail/mailer.js';
+import { emailOutbox, users } from '../src/db/schema.js';
+import { createOutboxMailer } from '../src/mail/mailer.js';
 import type { Services } from '../src/services.js';
-import { sql } from 'drizzle-orm';
+import { asc, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe } from 'vitest';
 import { createApp, type AppOptions } from '../src/app.js';
 import { createDb, runMigrations, type Db } from '../src/db/client.js';
@@ -85,7 +85,13 @@ export function fakeGoogle(identity: () => GoogleIdentity | Error): GoogleClient
 }
 
 export function testServices(db: Db, overrides: Partial<Services> = {}) {
-  const mailer = createMemoryMailer();
+  let wakes = 0;
+  const mailer = Object.assign(
+    createOutboxMailer(db, () => {
+      wakes += 1;
+    }),
+    { wakes: () => wakes },
+  );
   const config = loadConfig({ NODE_ENV: 'test', PUBLIC_URL: 'http://localhost:9080' });
   const services: Services = {
     db,
@@ -96,6 +102,11 @@ export function testServices(db: Db, overrides: Partial<Services> = {}) {
     ...overrides,
   };
   return { services, mailer, app: testApp({ services }) };
+}
+
+/** Emails in the outbox, oldest first. */
+export async function outbox(db: Db) {
+  return db.select().from(emailOutbox).orderBy(asc(emailOutbox.createdAt), asc(emailOutbox.id));
 }
 
 let counter = 0;
