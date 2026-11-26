@@ -155,6 +155,17 @@ Put the client ID and secret in `.env` as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_
 already created can use it, and their Google email must match. Production needs a domain with
 HTTPS (Google refuses private IP addresses).
 
+## Expense vouchers
+
+- A voucher has one or more expense lines. Money is stored as whole paise; the voucher total is the sum of its lines.
+- Drafts can be incomplete. Submitting checks everything (purpose, category, date not in the future, description, amount, and for GST bills the GSTIN, invoice number and either CGST = SGST or IGST) and returns each problem with a field path like `lines.1.gstin`. The web review step runs the same check (`voucherSubmitIssues` in `packages/shared`).
+- Each line needs a bill (PDF, JPG, PNG or WEBP, up to 10 MB, checked by its content, not its name) or a reason why there is none. Bills are stored in the `files` table; removing a line or voucher removes its files.
+- Numbers like `EXP-2026-00001` are given on submit, restart each year (Indian time) and have no gaps.
+- Where a voucher goes first: employees to their reporting manager, managers and directors to Accounts, Accounts users to the Director.
+- The employee can cancel (with a reason) until Accounts starts review. Unsubmitted drafts are deleted instead.
+- Every change needs the `version` the client last read, so two tabs can't overwrite each other (409 otherwise). Submit accepts an `Idempotency-Key`.
+- Admins manage categories under **Categories**. Switch one off rather than deleting it.
+
 ## Database
 
 PostgreSQL with [Drizzle ORM](https://orm.drizzle.team). Tables are defined in
