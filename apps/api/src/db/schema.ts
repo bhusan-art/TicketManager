@@ -1,19 +1,30 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   bigserial,
+  boolean,
   check,
+  date,
   customType,
   index,
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
   uuid,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
-import { ROLES, USER_STATUSES, type Role } from '@ticketmanager/shared';
+import {
+  APPROVAL_STATUSES,
+  CATEGORY_STATUSES,
+  PAYMENT_STATUSES,
+  ROLES,
+  USER_STATUSES,
+  type Role,
+} from '@ticketmanager/shared';
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   dataType: () => 'bytea',
@@ -171,3 +182,119 @@ export const files = pgTable('files', {
   uploadedBy: uuid('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: createdAt(),
 });
+
+/** Money columns hold integer paise. bigint so totals can't overflow; read back as JS numbers. */
+const paise = (name: string) => bigint(name, { mode: 'number' }).notNull().default(0);
+
+/** Expense categories, managed by admins. */
+export const categories = pgTable('categories', {
+  id: pk(),
+  name: text('name').notNull().unique(),
+  description: text('description'),
+  status: text('status', { enum: CATEGORY_STATUSES }).notNull().default('active'),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+/**
+ * Gapless running numbers per document kind and year, e.g. EXP 2026 → EXP-2026-00001.
+ * Taken inside the submitting transaction, so a rolled-back submit doesn't use up a number.
+ */
+export const documentCounters = pgTable(
+  'document_counters',
+  {
+    kind: text('kind').notNull(),
+    year: integer('year').notNull(),
+    lastValue: integer('last_value').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.kind, t.year] })],
+);
+
+/** An expense claim. It has one or more lines; the total is the sum of the lines. */
+export const vouchers = pgTable(
+  'vouchers',
+  {
+    id: pk(),
+    /** Assigned on submission. */
+    number: text('number').unique(),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => users.id),
+    /** Department and manager as they were at submission. */
+    departmentId: uuid('department_id').references(() => departments.id, {
+      onDelete: 'set null',
+    }),
+    managerId: uuid('manager_id').references(() => users.id),
+    purpose: text('purpose'),
+    approvalStatus: text('approval_status', { enum: APPROVAL_STATUSES }).notNull().default('draft'),
+    paymentStatus: text('payment_status', { enum: PAYMENT_STATUSES }).notNull().default('not_due'),
+    totalPaise: paise('total_paise'),
+    submittedAt: tstz('submitted_at'),
+    /** Set when Accounts opens the voucher for review. After that the employee can't cancel. */
+    accountsReviewStartedAt: tstz('accounts_review_started_at'),
+    cancelledAt: tstz('cancelled_at'),
+    cancelReason: text('cancel_reason'),
+    /** Optimistic concurrency: every change bumps it, and writers must send the version they read. */
+    version: integer('version').notNull().default(1),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index('vouchers_employee_idx').on(t.employeeId, t.createdAt.desc()),
+    index('vouchers_status_idx').on(t.approvalStatus),
+    check('vouchers_total_non_negative', sql`${t.totalPaise} >= 0`),
+  ],
+);
+
+export const voucherLines = pgTable(
+  'voucher_lines',
+  {
+    id: pk(),
+    voucherId: uuid('voucher_id')
+      .notNull()
+      .references(() => vouchers.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    categoryId: uuid('category_id').references(() => categories.id),
+    expenseDate: date('expense_date', { mode: 'string' }),
+    description: text('description'),
+    vendorName: text('vendor_name'),
+    /** What is claimed for this line, tax included. */
+    amountPaise: paise('amount_paise'),
+    isGst: boolean('is_gst').notNull().default(false),
+    gstin: text('gstin'),
+    invoiceNumber: text('invoice_number'),
+    cgstPaise: paise('cgst_paise'),
+    sgstPaise: paise('sgst_paise'),
+    igstPaise: paise('igst_paise'),
+    missingProofReason: text('missing_proof_reason'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index('voucher_lines_voucher_idx').on(t.voucherId, t.position),
+    check(
+      'voucher_lines_amounts_non_negative',
+      sql`${t.amountPaise} >= 0 and ${t.cgstPaise} >= 0 and ${t.sgstPaise} >= 0 and ${t.igstPaise} >= 0`,
+    ),
+  ],
+);
+
+/** Proof files (bills, invoices) attached to a voucher line. The bytes live in `files`. */
+export const voucherAttachments = pgTable(
+  'voucher_attachments',
+  {
+    id: pk(),
+    voucherId: uuid('voucher_id')
+      .notNull()
+      .references(() => vouchers.id, { onDelete: 'cascade' }),
+    lineId: uuid('line_id')
+      .notNull()
+      .references(() => voucherLines.id, { onDelete: 'cascade' }),
+    fileId: uuid('file_id')
+      .notNull()
+      .unique()
+      .references(() => files.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index('voucher_attachments_line_idx').on(t.lineId)],
+);

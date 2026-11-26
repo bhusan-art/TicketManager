@@ -13,6 +13,8 @@ import { requestId } from './http/middleware/requestId.js';
 import { healthRouter, type HealthCheck } from './routes/health.js';
 import type { Services } from './services.js';
 import { adminRouter } from './users/adminRoutes.js';
+import { categoriesRouter } from './categories/routes.js';
+import { vouchersRouter } from './vouchers/routes.js';
 
 export interface AppOptions {
   logger: Logger;
@@ -62,6 +64,8 @@ export function createApp(options: AppOptions) {
   if (services) {
     api.use('/auth', authRouter(services));
     api.use('/admin', adminRouter(services));
+    api.use('/categories', categoriesRouter(services));
+    api.use('/vouchers', vouchersRouter(services));
   }
   for (const [path, router] of Object.entries(options.routers ?? {})) {
     api.use(path, router);
