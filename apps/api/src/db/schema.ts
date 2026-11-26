@@ -23,6 +23,7 @@ import {
   PAYMENT_STATUSES,
   ROLES,
   USER_STATUSES,
+  VOUCHER_EVENT_TYPES,
   type Role,
 } from '@ticketmanager/shared';
 
@@ -232,6 +233,10 @@ export const vouchers = pgTable(
     submittedAt: tstz('submitted_at'),
     /** Set when Accounts opens the voucher for review. After that the employee can't cancel. */
     accountsReviewStartedAt: tstz('accounts_review_started_at'),
+    /** Sum of approved line amounts after the latest approval. */
+    approvedTotalPaise: bigint('approved_total_paise', { mode: 'number' }),
+    /** When the voucher reached a final decision (approved or rejected). */
+    decidedAt: tstz('decided_at'),
     cancelledAt: tstz('cancelled_at'),
     cancelReason: text('cancel_reason'),
     /** Optimistic concurrency: every change bumps it, and writers must send the version they read. */
@@ -267,11 +272,18 @@ export const voucherLines = pgTable(
     sgstPaise: paise('sgst_paise'),
     igstPaise: paise('igst_paise'),
     missingProofReason: text('missing_proof_reason'),
+    /** Set by approvers. Null until the first approval; never more than amountPaise. */
+    approvedPaise: bigint('approved_paise', { mode: 'number' }),
+    reviewNote: text('review_note'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
     index('voucher_lines_voucher_idx').on(t.voucherId, t.position),
+    check(
+      'voucher_lines_approved_within_claim',
+      sql`${t.approvedPaise} is null or (${t.approvedPaise} >= 0 and ${t.approvedPaise} <= ${t.amountPaise})`,
+    ),
     check(
       'voucher_lines_amounts_non_negative',
       sql`${t.amountPaise} >= 0 and ${t.cgstPaise} >= 0 and ${t.sgstPaise} >= 0 and ${t.igstPaise} >= 0`,
@@ -297,4 +309,30 @@ export const voucherAttachments = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('voucher_attachments_line_idx').on(t.lineId)],
+);
+
+/**
+ * The voucher's activity timeline: every step and comment, in order. Written in the same
+ * transaction as the change it describes. (The audit log keeps the full before/after record.)
+ */
+export const voucherEvents = pgTable(
+  'voucher_events',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    voucherId: uuid('voucher_id')
+      .notNull()
+      .references(() => vouchers.id, { onDelete: 'cascade' }),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+    actorId: uuid('actor_id').references(() => users.id),
+    actorRole: text('actor_role', { enum: ROLES }),
+    type: text('type', { enum: VOUCHER_EVENT_TYPES }).notNull(),
+    fromStatus: text('from_status', { enum: APPROVAL_STATUSES }),
+    toStatus: text('to_status', { enum: APPROVAL_STATUSES }),
+    message: text('message'),
+    meta: jsonb('meta'),
+  },
+  (t) => [
+    index('voucher_events_voucher_idx').on(t.voucherId, t.id),
+    index('voucher_events_actor_idx').on(t.actorId, t.type),
+  ],
 );

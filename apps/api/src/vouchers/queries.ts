@@ -1,6 +1,4 @@
 import {
-  CANCELLABLE_STATUSES,
-  type ApprovalStatus,
   type VoucherAttachment,
   type VoucherDetail,
   type VoucherLine,
@@ -10,6 +8,8 @@ import { asc, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { AuthContext } from '../auth/middleware.js';
 import type { DbOrTx } from '../db/client.js';
+import { getVoucherEvents } from './events.js';
+import { permissions, waitingOn } from './workflow.js';
 import {
   categories,
   departments,
@@ -19,27 +19,6 @@ import {
   voucherLines,
   vouchers,
 } from '../db/schema.js';
-
-/** Statuses in which the employee can change lines and proofs. Later phases add query/returned. */
-export const EDITABLE_STATUSES: readonly ApprovalStatus[] = ['draft'];
-
-type VoucherRow = typeof vouchers.$inferSelect;
-
-/** Who may see a voucher. Phase 2: only its owner. Approvers are added with the approval flow. */
-export function canView(auth: AuthContext, voucher: Pick<VoucherRow, 'employeeId'>) {
-  return voucher.employeeId === auth.userId;
-}
-
-export function permissions(auth: AuthContext, v: VoucherRow): VoucherDetail['can'] {
-  const owner = v.employeeId === auth.userId;
-  const editable = owner && EDITABLE_STATUSES.includes(v.approvalStatus);
-  return {
-    edit: editable,
-    submit: editable,
-    cancel: owner && CANCELLABLE_STATUSES.includes(v.approvalStatus) && !v.accountsReviewStartedAt,
-    delete: owner && v.approvalStatus === 'draft' && !v.number,
-  };
-}
 
 const employees = alias(users, 'employee');
 const voucherManagers = alias(users, 'voucher_manager');
@@ -90,6 +69,8 @@ export async function getVoucherLines(db: DbOrTx, voucherId: string): Promise<Vo
     sgstPaise: line.sgstPaise,
     igstPaise: line.igstPaise,
     missingProofReason: line.missingProofReason,
+    approvedPaise: line.approvedPaise,
+    reviewNote: line.reviewNote,
     attachments: byLine.get(line.id) ?? [],
   }));
 }
@@ -151,7 +132,11 @@ export async function getVoucherDetail(
     cancelReason: v.cancelReason,
     createdAt: v.createdAt.toISOString(),
     updatedAt: v.updatedAt.toISOString(),
+    approvedTotalPaise: v.approvedTotalPaise,
+    accountsReviewStartedAt: v.accountsReviewStartedAt?.toISOString() ?? null,
+    waitingOn: waitingOn(v, row.managerName),
     lines: await getVoucherLines(db, v.id),
+    events: await getVoucherEvents(db, v.id),
     can: permissions(auth, v),
   };
 }

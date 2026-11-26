@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Ref } from './auth.js';
+import type { VoucherEvent, VoucherPermissions } from './workflow.js';
 import { MAX_AMOUNT_PAISE } from './money.js';
 
 /** Dates (financial years, voucher numbers, "today") are reckoned in Indian time. */
@@ -95,6 +96,7 @@ export const CANCELLABLE_STATUSES: readonly ApprovalStatus[] = [
   'manager_query',
   'pending_accounts',
   'pending_director',
+  'returned',
 ];
 
 // ---- Categories ----
@@ -222,6 +224,10 @@ export interface VoucherLine {
   sgstPaise: number;
   igstPaise: number;
   missingProofReason: string | null;
+  /** What the approvers allowed for this line. Null until someone approves. */
+  approvedPaise: number | null;
+  /** Why an approver reduced the line. */
+  reviewNote: string | null;
   attachments: VoucherAttachment[];
 }
 
@@ -250,8 +256,15 @@ export interface VoucherDetail {
   createdAt: string;
   updatedAt: string;
   lines: VoucherLine[];
+  /** Sum of the approved line amounts, once someone has approved. */
+  approvedTotalPaise: number | null;
+  /** Set when Accounts opened the voucher. After that the employee can't cancel. */
+  accountsReviewStartedAt: string | null;
+  /** Who holds the voucher now, e.g. "Amit Verma" or "Accounts". Null when nobody does. */
+  waitingOn: string | null;
+  events: VoucherEvent[];
   /** What the caller may do now. */
-  can: { edit: boolean; submit: boolean; cancel: boolean; delete: boolean };
+  can: VoucherPermissions;
 }
 
 export interface VoucherSummary {

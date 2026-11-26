@@ -1,7 +1,8 @@
-import type { VoucherDetail, VoucherSummary } from '@ticketmanager/shared';
+import type { VoucherSummary } from '@ticketmanager/shared';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { perms, voucher } from '../../test-fixtures';
 import { makeUser, mockApi, renderApp, session, type Routes } from '../../test-utils';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -43,60 +44,6 @@ const summary = (over: Partial<VoucherSummary> = {}): VoucherSummary => ({
   submittedAt: '2026-11-18T10:00:00Z',
   createdAt: '2026-11-18T09:00:00Z',
   updatedAt: '2026-11-18T10:00:00Z',
-  ...over,
-});
-
-const voucher = (over: Partial<VoucherDetail> = {}): VoucherDetail => ({
-  id: 'v1',
-  number: null,
-  purpose: 'Client meeting at Bengaluru',
-  approvalStatus: 'draft',
-  paymentStatus: 'not_due',
-  totalPaise: 720_000,
-  version: 3,
-  employee: {
-    id: 'u1',
-    name: 'Rahul Das',
-    email: 'rahul@company.com',
-    employeeCode: 'EMP-1024',
-    designation: null,
-  },
-  department: { id: 'd1', name: 'Engineering' },
-  manager: null,
-  submittedAt: null,
-  cancelledAt: null,
-  cancelReason: null,
-  createdAt: '2026-11-18T09:00:00Z',
-  updatedAt: '2026-11-18T09:00:00Z',
-  lines: [
-    {
-      id: 'l1',
-      position: 0,
-      category: { id: '00000000-0000-4000-8000-000000000001', name: 'Travel' },
-      expenseDate: '2026-11-18',
-      description: 'Cab to client office',
-      vendorName: null,
-      amountPaise: 720_000,
-      isGst: false,
-      gstin: null,
-      invoiceNumber: null,
-      cgstPaise: 0,
-      sgstPaise: 0,
-      igstPaise: 0,
-      missingProofReason: null,
-      attachments: [
-        {
-          id: 'a1',
-          lineId: 'l1',
-          filename: 'taxi.pdf',
-          contentType: 'application/pdf',
-          sizeBytes: 2048,
-          createdAt: '2026-11-18T09:00:00Z',
-        },
-      ],
-    },
-  ],
-  can: { edit: true, submit: true, cancel: false, delete: true },
   ...over,
 });
 
@@ -181,7 +128,7 @@ describe('Submit expense', () => {
       approvalStatus: 'pending_manager',
       manager: { id: 'm1', name: 'Amit Verma' },
       submittedAt: '2026-11-18T10:00:00Z',
-      can: { edit: false, submit: false, cancel: true, delete: false },
+      can: perms({ cancel: true, comment: true }),
     });
     let current = voucher();
     const calls = mockApi({

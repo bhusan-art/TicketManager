@@ -166,6 +166,15 @@ HTTPS (Google refuses private IP addresses).
 - Every change needs the `version` the client last read, so two tabs can't overwrite each other (409 otherwise). Submit accepts an `Idempotency-Key`.
 - Admins manage categories under **Categories**. Switch one off rather than deleting it.
 
+## Approvals
+
+- Chain: an employee's claim goes to their reporting manager, then Accounts. Managers' and directors' own claims go straight to Accounts. An Accounts user's own claim goes to the Director. Nobody can review their own claim, whatever roles they hold.
+- At each stage the approver can **approve** (optionally lowering line amounts, with a note), **query** (the employee answers and it comes back to the same approver; they may add bills but not edit lines), **return** (the employee edits and resubmits, and review starts again from the manager) or **reject** (final).
+- Accounts opening a voucher marks it "Under verification"; from then on the employee can't cancel it.
+- Final approval sets the payment status to "Payment pending" for Phase 4.
+- The rules live in `apps/api/src/vouchers/workflow.ts` and `test/workflow.test.ts` checks every status, caller and action.
+- Every step and comment goes on the voucher's activity timeline (`voucher_events`). Queues: `GET /api/v1/approvals?view=pending|queried|done`, based on the active role.
+
 ## Database
 
 PostgreSQL with [Drizzle ORM](https://orm.drizzle.team). Tables are defined in

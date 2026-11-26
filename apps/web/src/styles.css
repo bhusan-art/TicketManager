@@ -1038,3 +1038,169 @@ h1.with-pill {
     flex-direction: column;
   }
 }
+
+/* ---- Approvals ---- */
+
+.timeline li.good::before {
+  background: var(--primary);
+}
+
+.timeline li.bad::before {
+  background: var(--danger);
+}
+
+.timeline li.warn::before {
+  background: #d98a00;
+}
+
+.timeline li.quiet::before {
+  background: #c9ced6;
+}
+
+.event-message {
+  margin: 0.25rem 0;
+  padding: 0.45rem 0.65rem;
+  border-left: 3px solid var(--border);
+  background: var(--bg);
+  border-radius: 0 6px 6px 0;
+  font-size: 0.88rem;
+  white-space: pre-wrap;
+}
+
+.event-message.queried,
+.event-message.returned {
+  border-left-color: #d98a00;
+  background: #fff8ec;
+}
+
+.event-message.rejected,
+.event-message.cancelled {
+  border-left-color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.event-message.approved {
+  border-left-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.comment-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  align-items: flex-end;
+}
+
+.comment-box textarea {
+  width: 100%;
+  font: inherit;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  resize: vertical;
+}
+
+.callout {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.callout.warn {
+  border-color: #f3d59b;
+  background: #fffcf5;
+}
+
+.callout.bad {
+  border-color: #f2c4bf;
+  background: #fffafa;
+}
+
+.review-panel,
+.query-panel {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  border-color: #b9d9cc;
+}
+
+.query-panel {
+  border-color: #f3d59b;
+}
+
+.review-panel .table td {
+  vertical-align: middle;
+}
+
+.amount-input,
+.review-panel td input {
+  width: 100%;
+  min-width: 7rem;
+  font: inherit;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.amount-input {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.amount-input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.review-panel .field {
+  margin-top: 1rem;
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.decision-form {
+  margin-top: 1rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+.decision-form h3 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.attach-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.attach-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.attach-row select {
+  font: inherit;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.wrap {
+  white-space: normal;
+}
+
+.detail-grid {
+  align-items: start;
+}

@@ -10,10 +10,19 @@ const TONE: Partial<Record<ApprovalStatus, string>> = {
   cancelled: 'muted-pill',
 };
 
-export function VoucherStatus({ status }: { status: ApprovalStatus }) {
-  return (
-    <span className={`pill ${TONE[status] ?? 'pending'}`}>{APPROVAL_STATUS_LABELS[status]}</span>
-  );
+export function VoucherStatus({
+  status,
+  reviewStarted = false,
+}: {
+  status: ApprovalStatus;
+  /** Accounts has opened it: show "Under verification" instead of "Pending accounts". */
+  reviewStarted?: boolean;
+}) {
+  const label =
+    status === 'pending_accounts' && reviewStarted
+      ? 'Under verification'
+      : APPROVAL_STATUS_LABELS[status];
+  return <span className={`pill ${TONE[status] ?? 'pending'}`}>{label}</span>;
 }
 
 const dateFormat = new Intl.DateTimeFormat('en-IN', {

@@ -256,7 +256,12 @@ export function VoucherForm() {
         { 'Idempotency-Key': idempotencyKey() },
       );
       navigate(`/expenses/${done.id}`, {
-        state: { notice: `Submitted as ${done.number}.` },
+        state: {
+          notice:
+            voucher.approvalStatus === 'returned'
+              ? `Resubmitted ${done.number}.`
+              : `Submitted as ${done.number}.`,
+        },
       });
     } catch (err) {
       fail(err, 'Could not submit. Check your connection and try again.');
@@ -675,7 +680,7 @@ export function VoucherForm() {
               disabled={busy || !confirmed || issues.length > 0}
               onClick={() => void submit()}
             >
-              Submit expense
+              {voucher.approvalStatus === 'returned' ? 'Resubmit expense' : 'Submit expense'}
             </button>
           </StepActions>
         </div>
