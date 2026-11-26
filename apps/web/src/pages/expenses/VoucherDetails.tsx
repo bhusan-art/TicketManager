@@ -1,5 +1,5 @@
 import { formatRupees, rupeesInWords, type VoucherDetail } from '@ticketmanager/shared';
-import { Download, FileText, Paperclip, Pencil, Trash2, XCircle } from 'lucide-react';
+import { Download, FileArchive, FileText, Paperclip, Pencil, Trash2, XCircle } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { useUser } from '../../auth/AuthContext';
@@ -9,6 +9,7 @@ import { PaymentPanel } from '../../components/voucher/PaymentPanel';
 import { ReviewPanel } from '../../components/voucher/ReviewPanel';
 import { Timeline } from '../../components/voucher/Timeline';
 import { FollowUp } from '../../components/FollowUp';
+import { WhatsAppSend } from '../../components/WhatsAppSend';
 import {
   PaymentStatusPill,
   VoucherStatus,
@@ -90,6 +91,16 @@ export function VoucherDetails() {
     }
   }
 
+  async function downloadZip() {
+    if (!voucher) return;
+    setError(null);
+    try {
+      await fetchFile(`/vouchers/${voucher.id}/zip`, 'save', `${voucher.number ?? 'voucher'}.zip`);
+    } catch (e) {
+      fail(e, 'Could not download the ZIP');
+    }
+  }
+
   async function remove() {
     if (!voucher) return;
     if (!confirmDelete) {
@@ -168,6 +179,15 @@ export function VoucherDetails() {
           <button className="btn btn-secondary" onClick={() => void downloadPdf()}>
             <Download size={16} aria-hidden /> Download PDF
           </button>
+          {v.number && (
+            <button
+              className="btn btn-secondary"
+              title="The voucher PDF and every bill, in one ZIP"
+              onClick={() => void downloadZip()}
+            >
+              <FileArchive size={16} aria-hidden /> PDF and bills (ZIP)
+            </button>
+          )}
           {v.can.edit && (
             <Link to={`/expenses/${v.id}/edit`} className="btn btn-primary">
               <Pencil size={16} aria-hidden />{' '}
@@ -214,6 +234,7 @@ export function VoucherDetails() {
       {v.employee.id === user.id && (
         <FollowUp<VoucherDetail> path={`/vouchers/${v.id}`} version={v.version} onSent={done} />
       )}
+      {v.number && <WhatsAppSend path={`/vouchers/${v.id}`} version={v.version} />}
       {v.can.answer && <AnswerPanel voucher={v} onChange={setVoucher} onDone={done} />}
       {v.can.approve && <ReviewPanel key={v.version} voucher={v} onDone={done} />}
       {v.paymentStatus !== 'not_due' && v.paymentStatus !== 'against_advance' && (

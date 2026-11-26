@@ -6,6 +6,7 @@ import type { GoogleClient, GoogleIdentity } from '../src/auth/google.js';
 import { loadConfig } from '../src/config.js';
 import { emailOutbox, users } from '../src/db/schema.js';
 import { createOutboxMailer } from '../src/mail/mailer.js';
+import { createExportRunner } from '../src/documents/runner.js';
 import type { Services } from '../src/services.js';
 import { asc, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe } from 'vitest';
@@ -97,6 +98,7 @@ export function testServices(db: Db, overrides: Partial<Services> = {}) {
     db,
     config,
     mailer,
+    exports: createExportRunner(db, (err) => console.error('Export failed in test', err)),
     tokens: createAccessTokens(config.JWT_SECRET, config.ACCESS_TOKEN_MINUTES),
     google: null,
     ...overrides,

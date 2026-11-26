@@ -1571,3 +1571,104 @@ tr.reversed td.num {
   max-width: 28ch;
   overflow-wrap: anywhere;
 }
+
+/* ---- Phase 7: document centre, audit log, WhatsApp ---- */
+
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin-left: 0.5rem;
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.export-summary {
+  margin: 1rem 0 0.5rem;
+  min-height: 1.5rem;
+}
+
+.share-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.4rem;
+}
+
+.share-link input {
+  font-size: 0.8rem;
+  min-width: 18rem;
+}
+
+.audit-detail td {
+  background: #f9fafb;
+}
+
+.audit-diff {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.audit-diff pre {
+  margin: 0.25rem 0 0;
+  padding: 0.5rem;
+  max-height: 18rem;
+  overflow: auto;
+  font-size: 0.75rem;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.whatsapp-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.whatsapp-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.whatsapp-text {
+  margin: 0.4rem 0 0;
+  padding: 0.5rem 0.75rem;
+  background: #ecfdf3;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+}
+
+.whatsapp .btn {
+  flex: none;
+}

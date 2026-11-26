@@ -29,6 +29,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { useUser } from '../../auth/AuthContext';
 import { FollowUp } from '../../components/FollowUp';
+import { WhatsAppSend } from '../../components/WhatsAppSend';
 import { Field, FormError } from '../../components/forms';
 import {
   AdvanceStatusPill,
@@ -212,6 +213,7 @@ export function AdvanceDetails() {
           }}
         />
       )}
+      {a.status !== 'draft' && <WhatsAppSend path={`/advances/${a.id}`} version={a.version} />}
 
       {a.can.cancel && <CancelAdvance advance={a} send={send} busy={busy} errors={fieldErrors} />}
 

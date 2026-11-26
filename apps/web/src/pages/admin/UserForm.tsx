@@ -1,6 +1,7 @@
 import {
   ROLE_LABELS,
   ROLES,
+  formatWhatsApp,
   type DepartmentSummary,
   type Paginated,
   type Role,
@@ -16,6 +17,7 @@ interface FormState {
   email: string;
   employeeCode: string;
   designation: string;
+  whatsappNumber: string;
   departmentId: string;
   managerId: string;
   roles: Role[];
@@ -28,6 +30,7 @@ const empty: FormState = {
   email: '',
   employeeCode: '',
   designation: '',
+  whatsappNumber: '',
   departmentId: '',
   managerId: '',
   roles: ['employee'],
@@ -73,6 +76,7 @@ export function UserForm() {
           email: u.email,
           employeeCode: u.employeeCode ?? '',
           designation: u.designation ?? '',
+          whatsappNumber: u.whatsappNumber ? formatWhatsApp(u.whatsappNumber) : '',
           departmentId: u.department?.id ?? '',
           managerId: u.manager?.id ?? '',
           roles: u.roles,
@@ -104,6 +108,7 @@ export function UserForm() {
       email: form.email,
       employeeCode: form.employeeCode,
       designation: form.designation,
+      whatsappNumber: form.whatsappNumber.trim() || null,
       departmentId: form.departmentId || null,
       managerId: form.managerId || null,
       roles: ROLES.filter((r) => form.roles.includes(r)),
@@ -160,6 +165,20 @@ export function UserForm() {
         </Field>
         <Field label="Designation" error={fieldErrors.designation}>
           <input value={form.designation} onChange={(e) => set('designation', e.target.value)} />
+        </Field>
+        <Field
+          label="WhatsApp number"
+          error={fieldErrors.whatsappNumber}
+          hint="Optional. A 10-digit Indian mobile, or with the country code (+44…). Used for “Send on WhatsApp”."
+        >
+          <input
+            type="tel"
+            inputMode="tel"
+            autoComplete="off"
+            placeholder="98765 43210"
+            value={form.whatsappNumber}
+            onChange={(e) => set('whatsappNumber', e.target.value)}
+          />
         </Field>
         <Field label="Department" error={fieldErrors.departmentId}>
           <select value={form.departmentId} onChange={(e) => set('departmentId', e.target.value)}>

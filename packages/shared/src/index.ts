@@ -11,3 +11,5 @@ export * from './workflow.js';
 export * from './payments.js';
 export * from './advances.js';
 export * from './notifications.js';
+export * from './documents.js';
+export * from './whatsapp.js';

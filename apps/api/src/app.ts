@@ -15,6 +15,8 @@ import type { Services } from './services.js';
 import { adminRouter } from './users/adminRoutes.js';
 import { advanceSettingsRouter, advancesRouter } from './advances/routes.js';
 import { categoriesRouter } from './categories/routes.js';
+import { whatsAppRouter } from './notifications/whatsapp.js';
+import { auditRouter, exportsRouter, voucherZipRouter } from './documents/routes.js';
 import {
   advanceFollowUpRouter,
   emailLogRouter,
@@ -88,6 +90,8 @@ export function createApp(options: AppOptions) {
     api.use('/categories', categoriesRouter(services));
     api.use('/vouchers', vouchersRouter(services));
     api.use('/vouchers', voucherFollowUpRouter(services));
+    api.use('/vouchers', voucherZipRouter(services));
+    api.use('/vouchers', whatsAppRouter('voucher', services));
     api.use('/vouchers', voucherReviewRouter(services));
     api.use('/approvals', approvalsRouter(services));
     api.use('/vouchers', voucherPaymentsRouter(services));
@@ -97,9 +101,12 @@ export function createApp(options: AppOptions) {
     api.use('/advances', advancesRouter(services));
     api.use('/admin/settings/advances', advanceSettingsRouter(services));
     api.use('/advances', advanceFollowUpRouter(services));
+    api.use('/advances', whatsAppRouter('advance', services));
     api.use('/notifications', notificationsRouter(services));
     api.use('/admin/emails', emailLogRouter(services));
     api.use('/admin/settings/notifications', notificationSettingsRouter(services));
+    api.use('/exports', exportsRouter(services));
+    api.use('/audit', auditRouter(services));
   }
   for (const [path, router] of Object.entries(options.routers ?? {})) {
     api.use(path, router);
