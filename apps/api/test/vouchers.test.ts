@@ -10,10 +10,12 @@ const PNG = Buffer.concat([
   Buffer.alloc(32),
 ]);
 
-function binary(res: NodeJS.ReadableStream, done: (err: Error | null, body: Buffer) => void) {
+/** Collects a binary response body (supertest only buffers text and JSON by default). */
+function binary(res: request.Response, done: (err: Error | null, body: Buffer) => void) {
+  const stream = res as unknown as NodeJS.ReadableStream;
   const chunks: Buffer[] = [];
-  res.on('data', (c: Buffer) => chunks.push(c));
-  res.on('end', () => done(null, Buffer.concat(chunks)));
+  stream.on('data', (c: Buffer) => chunks.push(c));
+  stream.on('end', () => done(null, Buffer.concat(chunks)));
 }
 
 describeWithDb('vouchers', () => {
