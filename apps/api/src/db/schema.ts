@@ -18,6 +18,9 @@ import {
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import {
+  ADVANCE_EVENT_TYPES,
+  ADVANCE_STATUSES,
+  ADVANCE_TRANSACTION_KINDS,
   APPROVAL_STATUSES,
   CATEGORY_STATUSES,
   PAYMENT_MODES,
@@ -242,6 +245,11 @@ export const vouchers = pgTable(
     paidPaise: paise('paid_paise'),
     /** When the last instalment cleared the approved total. */
     paidAt: tstz('paid_at'),
+    /**
+     * The advance this claim settles. One column, so a voucher can be allocated to only one
+     * advance; such a voucher is never paid on its own (checked below).
+     */
+    advanceId: uuid('advance_id').references((): AnyPgColumn => advances.id),
     cancelledAt: tstz('cancelled_at'),
     cancelReason: text('cancel_reason'),
     /** Optimistic concurrency: every change bumps it, and writers must send the version they read. */
@@ -258,6 +266,9 @@ export const vouchers = pgTable(
       'vouchers_paid_within_approved',
       sql`${t.paidPaise} >= 0 and ${t.paidPaise} <= coalesce(${t.approvedTotalPaise}, 0)`,
     ),
+    // A claim settled from an advance is never paid as well.
+    check('vouchers_advance_not_paid', sql`${t.advanceId} is null or ${t.paidPaise} = 0`),
+    index('vouchers_advance_idx').on(t.advanceId),
   ],
 );
 
@@ -387,3 +398,112 @@ export const payments = pgTable(
     ),
   ],
 );
+
+/** Advances: money paid to an employee before they spend it, settled by their approved claims. */
+export const advances = pgTable(
+  'advances',
+  {
+    id: pk(),
+    /** ADV-2026-00001, given on submit. */
+    number: text('number').unique(),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => users.id),
+    departmentId: uuid('department_id').references(() => departments.id, {
+      onDelete: 'set null',
+    }),
+    managerId: uuid('manager_id').references(() => users.id),
+    purpose: text('purpose').notNull(),
+    notes: text('notes'),
+    status: text('status', { enum: ADVANCE_STATUSES }).notNull().default('draft'),
+    requestedPaise: bigint('requested_paise', { mode: 'number' }).notNull(),
+    approvedPaise: bigint('approved_paise', { mode: 'number' }),
+    expectedDate: date('expected_date', { mode: 'string' }).notNull(),
+    settleBy: date('settle_by', { mode: 'string' }),
+    submittedAt: tstz('submitted_at'),
+    decidedAt: tstz('decided_at'),
+    disbursedAt: tstz('disbursed_at'),
+    closedAt: tstz('closed_at'),
+    cancelReason: text('cancel_reason'),
+    version: integer('version').notNull().default(1),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index('advances_employee_idx').on(t.employeeId, t.createdAt.desc()),
+    index('advances_status_idx').on(t.status),
+    check('advances_requested_positive', sql`${t.requestedPaise} > 0`),
+    check(
+      'advances_approved_within_requested',
+      sql`${t.approvedPaise} is null or (${t.approvedPaise} > 0 and ${t.approvedPaise} <= ${t.requestedPaise})`,
+    ),
+  ],
+);
+
+/**
+ * Money moving for an advance: the payout, money the employee returns, and any shortfall the
+ * company pays. Never deleted; mistakes are reversed with a reason.
+ */
+export const advanceTransactions = pgTable(
+  'advance_transactions',
+  {
+    id: pk(),
+    advanceId: uuid('advance_id')
+      .notNull()
+      .references(() => advances.id),
+    kind: text('kind', { enum: ADVANCE_TRANSACTION_KINDS }).notNull(),
+    amountPaise: bigint('amount_paise', { mode: 'number' }).notNull(),
+    paidOn: date('paid_on', { mode: 'string' }).notNull(),
+    mode: text('mode', { enum: PAYMENT_MODES }).notNull(),
+    reference: text('reference'),
+    note: text('note'),
+    recordedBy: uuid('recorded_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+    reversedAt: tstz('reversed_at'),
+    reversedBy: uuid('reversed_by').references(() => users.id),
+    reversalReason: text('reversal_reason'),
+  },
+  (t) => [
+    index('advance_transactions_advance_idx').on(t.advanceId, t.createdAt),
+    uniqueIndex('advance_transactions_reference_active_key')
+      .on(t.mode, t.reference)
+      .where(sql`${t.reversedAt} is null and ${t.reference} is not null`),
+    // One payout per advance (a reversed one doesn't count).
+    uniqueIndex('advance_transactions_one_disbursement')
+      .on(t.advanceId)
+      .where(sql`${t.kind} = 'disbursement' and ${t.reversedAt} is null`),
+    check('advance_transactions_amount_positive', sql`${t.amountPaise} > 0`),
+    check(
+      'advance_transactions_reversal_complete',
+      sql`(${t.reversedAt} is null) = (${t.reversedBy} is null) and (${t.reversedAt} is null) = (${t.reversalReason} is null)`,
+    ),
+  ],
+);
+
+export const advanceEvents = pgTable(
+  'advance_events',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    advanceId: uuid('advance_id')
+      .notNull()
+      .references(() => advances.id, { onDelete: 'cascade' }),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+    actorId: uuid('actor_id').references(() => users.id),
+    actorRole: text('actor_role', { enum: ROLES }),
+    type: text('type', { enum: ADVANCE_EVENT_TYPES }).notNull(),
+    fromStatus: text('from_status', { enum: ADVANCE_STATUSES }),
+    toStatus: text('to_status', { enum: ADVANCE_STATUSES }),
+    message: text('message'),
+    meta: jsonb('meta'),
+  },
+  (t) => [index('advance_events_advance_idx').on(t.advanceId, t.id)],
+);
+
+/** Company-wide settings, one JSON value per key. */
+export const settings = pgTable('settings', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  updatedAt: updatedAt(),
+});

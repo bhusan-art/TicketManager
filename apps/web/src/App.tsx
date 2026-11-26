@@ -2,6 +2,10 @@ import { Route, Routes } from 'react-router';
 import { RequireAuth, RequireRole } from './auth/guards';
 import { Layout } from './components/Layout';
 import { Categories } from './pages/admin/Categories';
+import { Settings } from './pages/admin/Settings';
+import { AdvanceDetails } from './pages/advances/AdvanceDetails';
+import { AdvanceForm } from './pages/advances/AdvanceForm';
+import { AdvanceList } from './pages/advances/AdvanceList';
 import { Departments } from './pages/admin/Departments';
 import { UserForm } from './pages/admin/UserForm';
 import { Users } from './pages/admin/Users';
@@ -33,8 +37,11 @@ export function App() {
           <Route path="expenses/new" element={<VoucherForm key="new" />} />
           <Route path="expenses/:id" element={<VoucherDetails />} />
           <Route path="expenses/:id/edit" element={<VoucherForm key="edit" />} />
-          <Route path="advances" element={<Placeholder title="Advances" phase={5} />} />
-          <Route path="settlements" element={<Placeholder title="Settlements" phase={5} />} />
+          <Route path="advances" element={<AdvanceList />} />
+          <Route path="advances/new" element={<AdvanceForm key="new" />} />
+          <Route path="advances/:id" element={<AdvanceDetails />} />
+          <Route path="advances/:id/edit" element={<AdvanceForm key="edit" />} />
+          <Route path="settlements" element={<AdvanceList settlements />} />
           <Route
             path="approvals"
             element={
@@ -109,6 +116,14 @@ export function App() {
             element={
               <RequireRole roles={['admin']}>
                 <Categories />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="admin/settings"
+            element={
+              <RequireRole roles={['admin']}>
+                <Settings />
               </RequireRole>
             }
           />

@@ -156,6 +156,7 @@ describe('Accounts dashboard', () => {
       awaitingPayment: { count: 2, amountPaise: 980_000 },
       paidThisMonth: { count: 7, amountPaise: 3_100_000 },
       claimedThisMonth: { count: 12, amountPaise: 5_600_000 },
+      openAdvances: { count: 1, amountPaise: 2_000_000, overdue: 0 },
       liabilityAging: [
         { bucket: '0-7', count: 1, amountPaise: 500_000 },
         { bucket: '8-30', count: 1, amountPaise: 480_000 },

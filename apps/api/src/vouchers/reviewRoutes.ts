@@ -22,7 +22,7 @@ import { z } from 'zod';
 import { recordAudit } from '../audit/audit.js';
 import { requireAuth, requireRole } from '../auth/middleware.js';
 import type { Tx } from '../db/client.js';
-import { departments, users, voucherLines, vouchers } from '../db/schema.js';
+import { advances, departments, users, voucherLines, vouchers } from '../db/schema.js';
 import { AppError, conflict, forbidden, notFound } from '../http/errors.js';
 import { paginate } from '../http/pagination.js';
 import { parseBody, parseParams, parseQuery } from '../http/validate.js';
@@ -176,10 +176,27 @@ export function voucherReviewRouter({ db }: Services) {
             .where(eq(voucherLines.id, d.line.id));
         }
       }
+      if (final && v.advanceId) {
+        // Lock the advance so it can't close while this claim joins its settlement.
+        const [advance] = await tx
+          .select({ status: advances.status, number: advances.number })
+          .from(advances)
+          .where(eq(advances.id, v.advanceId))
+          .for('update');
+        if (advance?.status !== 'open') {
+          throw conflict(
+            `Advance ${advance?.number ?? ''} is no longer open. Return the voucher so the employee can untag it.`,
+          );
+        }
+      }
       const changes = {
         approvalStatus: next,
         approvedTotalPaise: total,
-        ...(final && { decidedAt: new Date(), paymentStatus: 'payment_pending' as const }),
+        ...(final && {
+          decidedAt: new Date(),
+          // A claim tagged to an advance is settled there, not paid on its own.
+          paymentStatus: v.advanceId ? ('against_advance' as const) : ('payment_pending' as const),
+        }),
         ...(reviewStart(req, v) && { accountsReviewStartedAt: reviewStart(req, v) }),
       };
       await tx

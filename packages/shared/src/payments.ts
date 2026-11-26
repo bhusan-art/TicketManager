@@ -106,6 +106,8 @@ export interface AccountsDashboard {
   awaitingPayment: { count: number; amountPaise: number };
   paidThisMonth: { count: number; amountPaise: number };
   claimedThisMonth: { count: number; amountPaise: number };
+  /** Disbursed advances not yet settled, and how many are past their settle-by date. */
+  openAdvances: { count: number; amountPaise: number; overdue: number };
   /** Approved but unpaid, by how long ago it was approved. */
   liabilityAging: {
     bucket: '0-7' | '8-30' | '31-60' | '60+';

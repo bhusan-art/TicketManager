@@ -1383,3 +1383,21 @@ tr.reversed td.num {
 .nowrap {
   white-space: nowrap;
 }
+
+.page-actions {
+  margin-bottom: 1rem;
+}
+
+.filters .filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.filters .filter-toggle input {
+  width: auto;
+  padding: 0;
+  accent-color: var(--primary);
+}

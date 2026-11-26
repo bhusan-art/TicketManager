@@ -3,8 +3,9 @@
 Expense management web app: employees submit expense vouchers, managers approve them, and Accounts
 verifies and pays them. Built with PostgreSQL, Express, React and Node (TypeScript throughout).
 
-Built so far: Phases 0–4: foundation, sign-in and roles, expense vouchers, approvals, and
-payments with the Accounts dashboard and reports. Advances and settlements arrive in Phase 5.
+Built so far: Phases 0–5: foundation, sign-in and roles, expense vouchers, approvals, payments
+with the Accounts dashboard and reports, and advances with settlement. Notifications arrive in
+Phase 6.
 
 ## Run it on your computer (Windows, VS Code)
 
@@ -185,6 +186,17 @@ HTTPS (Google refuses private IP addresses).
 - **Dashboard** (Accounts, Director, Admin): claims to verify, approved but not paid, paid and claimed this month, unpaid claims by age (0–7, 8–30, 31–60, 60+ days since approval), and approved vs paid for the last six months.
 - **Reports** (Accounts, Director, Admin): spend by department, employee and category for a date range (by submission date, Indian time), plus the _Approved, not paid_ list. Each table downloads as CSV that opens cleanly in Excel.
 - APIs: `POST /vouchers/:id/payments`, `POST /vouchers/:id/payments/:paymentId/reverse`, `GET /payments`, `GET /accounts/dashboard`, `GET /reports`, `GET /reports/liability`.
+
+## Advances and settlement
+
+- An employee asks for an advance (purpose, amount, expected expense date). It is approved like a claim: reporting manager, then Accounts (an Accounts user's own request goes to the Director). Any approver can approve less, return it for changes, or reject it.
+- One active advance per person. Admins can set the largest advance under **Settings** (no limit by default).
+- Accounts records the payout (amount up to the approved one, date, mode, UTR). The advance is then **Open** and must be settled within 30 days of the later of the expected date and the payout; after that it is flagged **Overdue**.
+- The employee tags expense vouchers to the open advance ("Settle against an advance" on the voucher form). A voucher can hold one advance only. Tagged vouchers go through normal approval but are never paid on their own: their status becomes **Settled from advance**, they stay out of the payment queue, and the database refuses a payment on them.
+- Settlement: balance = paid out − approved claims − money returned + shortfall paid. Above zero the employee returns the rest; below zero Accounts pays the shortfall. Accounts closes the advance once the balance is zero and no tagged claim is still in review.
+- A mistaken payout, return or shortfall payment is reversed with a reason, never deleted. A payout can be reversed only while no claim or settlement entry depends on it.
+- Advance money is not counted as an expense. Reports count approved claims; claims settled from an advance count as paid.
+- APIs: `/advances` (list by `view`, `counts`, `linkable`, `settings`), `POST /advances/:id/{submit,approve,return,reject,cancel,disburse,transactions,close}`, `POST /advances/:id/transactions/:txId/reverse`, `PUT /admin/settings/advances`.
 
 ## Database
 

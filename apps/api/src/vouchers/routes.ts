@@ -19,7 +19,14 @@ import { z } from 'zod';
 import { recordAudit } from '../audit/audit.js';
 import { requireAuth } from '../auth/middleware.js';
 import type { Tx } from '../db/client.js';
-import { categories, users, voucherAttachments, voucherLines, vouchers } from '../db/schema.js';
+import {
+  advances,
+  categories,
+  users,
+  voucherAttachments,
+  voucherLines,
+  vouchers,
+} from '../db/schema.js';
 import { AppError, conflict, notFound } from '../http/errors.js';
 import { paginate } from '../http/pagination.js';
 import {
@@ -69,6 +76,34 @@ export function firstStage(user: {
     );
   }
   return 'pending_manager';
+}
+
+/**
+ * A voucher can be tagged only to one of the employee's own advances that has been paid out and
+ * is not yet settled.
+ */
+async function assertAdvance(tx: Tx, advanceId: string | null | undefined, employeeId: string) {
+  if (!advanceId) return;
+  const [a] = await tx
+    .select({ employeeId: advances.employeeId, status: advances.status })
+    .from(advances)
+    .where(eq(advances.id, advanceId));
+  if (!a || a.employeeId !== employeeId) {
+    throw invalid('Choose one of your own advances', [
+      { path: 'advanceId', message: 'This advance is not yours' },
+    ]);
+  }
+  if (a.status !== 'open') {
+    throw invalid('This advance is not open', [
+      {
+        path: 'advanceId',
+        message:
+          a.status === 'closed'
+            ? 'This advance is already settled. Choose another, or none.'
+            : 'This advance has not been paid out yet',
+      },
+    ]);
+  }
 }
 
 /** Employee expense vouchers: drafts, lines, proofs, submit, cancel and the voucher PDF. */
@@ -199,10 +234,12 @@ export function vouchersRouter({ db }: Services) {
     const input = parseBody(createVoucherSchema, req);
     const id = await db.transaction(async (tx) => {
       await assertCategories(tx, input.lines, new Set());
+      await assertAdvance(tx, input.advanceId, req.auth!.userId);
       const [voucher] = await tx
         .insert(vouchers)
         .values({
           employeeId: req.auth!.userId,
+          advanceId: input.advanceId ?? null,
           purpose: input.purpose ?? null,
           totalPaise: voucherTotal(input.lines),
         })
@@ -261,6 +298,9 @@ export function vouchersRouter({ db }: Services) {
         input.lines,
         new Set(existing.map((l) => l.categoryId).filter((c): c is string => !!c)),
       );
+      if (input.advanceId && input.advanceId !== voucher.advanceId) {
+        await assertAdvance(tx, input.advanceId, voucher.employeeId);
+      }
 
       const keep = input.lines.map((l) => l.id).filter((x): x is string => !!x);
       // Removing a line removes its proofs too (the database cascades and deletes the files).
@@ -285,6 +325,7 @@ export function vouchersRouter({ db }: Services) {
       await tx
         .update(vouchers)
         .set({
+          advanceId: input.advanceId ?? null,
           purpose: input.purpose ?? null,
           totalPaise: total,
           version: sql`${vouchers.version} + 1`,
@@ -363,6 +404,8 @@ export function vouchersRouter({ db }: Services) {
         });
       }
       if (issues.length) throw invalid('Fix these before submitting', issues);
+      // The advance may have been settled since the voucher was tagged.
+      await assertAdvance(tx, voucher.advanceId, voucher.employeeId);
 
       const [claimant] = await tx
         .select({

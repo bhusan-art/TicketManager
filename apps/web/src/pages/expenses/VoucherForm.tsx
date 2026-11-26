@@ -7,6 +7,7 @@ import {
   todayIso,
   voucherSubmitIssues,
   type Category,
+  type LinkableAdvance,
   type Issue,
   type VoucherAttachment,
   type VoucherDetail,
@@ -141,6 +142,8 @@ export function VoucherForm() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [voucher, setVoucher] = useState<VoucherDetail | null>(null);
   const [purpose, setPurpose] = useState('');
+  const [advanceId, setAdvanceId] = useState('');
+  const [linkable, setLinkable] = useState<LinkableAdvance[]>([]);
   const [lines, setLines] = useState<LineForm[]>(() => (id ? [] : [blankLine()]));
   const [loading, setLoading] = useState(Boolean(id));
   const [busy, setBusy] = useState(false);
@@ -153,11 +156,16 @@ export function VoucherForm() {
       (r) => setCategories(r.data),
       () => {},
     );
+    apiGet<{ data: LinkableAdvance[] }>('/advances/linkable').then(
+      (r) => setLinkable(r.data),
+      () => {},
+    );
   }, []);
 
   function load(v: VoucherDetail) {
     setVoucher(v);
     setPurpose(v.purpose ?? '');
+    setAdvanceId(v.advance?.id ?? '');
     setLines(fromVoucher(v));
   }
 
@@ -223,9 +231,14 @@ export function VoucherForm() {
         ? await apiPatch<VoucherDetail>(`/vouchers/${voucher.id}`, {
             version: voucher.version,
             purpose,
+            advanceId: advanceId || null,
             lines: input,
           })
-        : await apiPost<VoucherDetail>('/vouchers', { purpose, lines: input });
+        : await apiPost<VoucherDetail>('/vouchers', {
+            purpose,
+            advanceId: advanceId || null,
+            lines: input,
+          });
       load(saved);
       return saved;
     } catch (err) {
@@ -396,6 +409,27 @@ export function VoucherForm() {
                 autoFocus={!voucher}
               />
             </Field>
+            {(linkable.length > 0 || advanceId) && (
+              <Field
+                label="Settle against an advance"
+                error={err('advanceId')}
+                hint="Choose your advance if this expense was paid from it. It is then settled there, not paid to you separately."
+              >
+                <select value={advanceId} onChange={(e) => setAdvanceId(e.target.value)}>
+                  <option value="">No, pay me for this claim</option>
+                  {linkable.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.number} · {a.purpose} ({formatRupees(a.disbursedPaise)})
+                    </option>
+                  ))}
+                  {advanceId && !linkable.some((a) => a.id === advanceId) && (
+                    <option value={advanceId}>
+                      {voucher?.advance?.number ?? 'Advance'} (no longer open)
+                    </option>
+                  )}
+                </select>
+              </Field>
+            )}
           </div>
 
           {lines.map((line, i) => (
@@ -604,6 +638,14 @@ export function VoucherForm() {
             <dl className="details">
               <dt>Purpose</dt>
               <dd>{purpose || '—'}</dd>
+              {advanceId && (
+                <>
+                  <dt>Advance</dt>
+                  <dd>
+                    {linkable.find((a) => a.id === advanceId)?.number ?? voucher.advance?.number}
+                  </dd>
+                </>
+              )}
               <dt>Expenses</dt>
               <dd>{lines.length}</dd>
               <dt>Total</dt>
@@ -698,6 +740,7 @@ function describePath(path: string) {
   const m = /^lines\.(\d+)\./.exec(path);
   if (m) return `Expense ${Number(m[1]) + 1}`;
   if (path === 'purpose') return 'Purpose';
+  if (path === 'advanceId') return 'Advance';
   return 'Voucher';
 }
 
