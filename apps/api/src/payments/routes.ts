@@ -202,7 +202,11 @@ export function paymentQueueRouter({ db }: Services) {
   router.get('/', async (req, res) => {
     const page = parseQuery(paginationQuerySchema, req);
     const { view, search } = parseQuery(paymentQueueQuerySchema, req);
-    const where: SQL[] = [inArray(vouchers.approvalStatus, ['approved', 'partially_approved'])];
+    const where: SQL[] = [
+      inArray(vouchers.approvalStatus, ['approved', 'partially_approved']),
+      // Claims tagged to an advance are settled there, never paid here.
+      sql`${vouchers.advanceId} is null`,
+    ];
     if (view === 'due') {
       where.push(inArray(vouchers.paymentStatus, ['payment_pending', 'partially_paid']));
     }

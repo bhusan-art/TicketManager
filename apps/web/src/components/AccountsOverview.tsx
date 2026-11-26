@@ -67,6 +67,20 @@ export function AccountsOverview({ showLinks }: { showLinks: boolean }) {
       hint: ['payment', 'payments'],
     },
     {
+      label: 'Open advances',
+      count: data.openAdvances.count,
+      amountPaise: data.openAdvances.amountPaise,
+      to: '/settlements',
+      hint:
+        data.openAdvances.overdue > 0
+          ? [
+              `open, ${data.openAdvances.overdue} overdue`,
+              `open, ${data.openAdvances.overdue} overdue`,
+            ]
+          : ['advance not yet settled', 'advances not yet settled'],
+      tone: data.openAdvances.overdue > 0 ? 'warn' : undefined,
+    },
+    {
       label: 'Claimed this month',
       ...data.claimedThisMonth,
       to: '/reports',

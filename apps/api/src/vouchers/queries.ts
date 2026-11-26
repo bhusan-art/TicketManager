@@ -12,6 +12,7 @@ import { getVoucherPayments, voucherMoney } from '../payments/queries.js';
 import { getVoucherEvents } from './events.js';
 import { permissions, waitingOn } from './workflow.js';
 import {
+  advances,
   categories,
   departments,
   files,
@@ -142,8 +143,17 @@ export async function getVoucherDetail(
     paidPaise: v.paidPaise,
     outstandingPaise: voucherMoney(v).outstandingPaise,
     paidAt: v.paidAt?.toISOString() ?? null,
+    advance: v.advanceId ? await getAdvanceRef(db, v.advanceId) : null,
     can: permissions(auth, v),
   };
+}
+
+async function getAdvanceRef(db: DbOrTx, id: string) {
+  const [a] = await db
+    .select({ id: advances.id, number: advances.number })
+    .from(advances)
+    .where(eq(advances.id, id));
+  return a ?? null;
 }
 
 /** Columns for list screens. Subqueries name "vouchers"."id" in full so it isn't shadowed. */

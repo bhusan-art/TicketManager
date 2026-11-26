@@ -1,6 +1,8 @@
 import {
+  ADVANCE_STATUS_LABELS,
   APPROVAL_STATUS_LABELS,
   PAYMENT_STATUS_LABELS,
+  type AdvanceStatus,
   type ApprovalStatus,
   type PaymentStatus,
 } from '@ticketmanager/shared';
@@ -69,6 +71,32 @@ export function PaymentStatusPill({ status }: { status: PaymentStatus }) {
   return (
     <span className={`pill ${PAYMENT_TONE[status] ?? 'pending'}`}>
       {PAYMENT_STATUS_LABELS[status]}
+    </span>
+  );
+}
+
+const ADVANCE_TONE: Partial<Record<AdvanceStatus, string>> = {
+  draft: 'muted-pill',
+  approved: 'up',
+  open: 'up',
+  closed: 'muted-pill',
+  manager_rejected: 'down',
+  accounts_rejected: 'down',
+  director_rejected: 'down',
+  cancelled: 'muted-pill',
+};
+
+export function AdvanceStatusPill({
+  status,
+  overdue = false,
+}: {
+  status: AdvanceStatus;
+  overdue?: boolean;
+}) {
+  if (overdue) return <span className="pill down">Overdue</span>;
+  return (
+    <span className={`pill ${ADVANCE_TONE[status] ?? 'pending'}`}>
+      {ADVANCE_STATUS_LABELS[status]}
     </span>
   );
 }

@@ -13,6 +13,7 @@ import { requestId } from './http/middleware/requestId.js';
 import { healthRouter, type HealthCheck } from './routes/health.js';
 import type { Services } from './services.js';
 import { adminRouter } from './users/adminRoutes.js';
+import { advanceSettingsRouter, advancesRouter } from './advances/routes.js';
 import { categoriesRouter } from './categories/routes.js';
 import { paymentQueueRouter, voucherPaymentsRouter } from './payments/routes.js';
 import { accountsRouter, reportsRouter } from './reports/routes.js';
@@ -75,6 +76,8 @@ export function createApp(options: AppOptions) {
     api.use('/payments', paymentQueueRouter(services));
     api.use('/accounts', accountsRouter(services));
     api.use('/reports', reportsRouter(services));
+    api.use('/advances', advancesRouter(services));
+    api.use('/admin/settings/advances', advanceSettingsRouter(services));
   }
   for (const [path, router] of Object.entries(options.routers ?? {})) {
     api.use(path, router);

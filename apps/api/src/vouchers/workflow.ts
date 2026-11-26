@@ -24,6 +24,8 @@ export interface WorkflowVoucher {
   accountsReviewStartedAt: Date | string | null;
   approvedTotalPaise?: number | null;
   paidPaise?: number;
+  /** Tagged to an advance: settled there, never paid on its own. */
+  advanceId?: string | null;
 }
 
 type Caller = Pick<AuthContext, 'userId' | 'activeRole'>;
@@ -75,11 +77,15 @@ export function permissions(caller: Caller, v: WorkflowVoucher): VoucherPermissi
   };
 }
 
-/** Accounts pays approved claims, never their own, and never more than was approved. */
+/**
+ * Accounts pays approved claims, never their own, never more than was approved, and never a claim
+ * that an advance settles.
+ */
 export function canPay(caller: Caller, v: WorkflowVoucher): boolean {
   return (
     caller.activeRole === 'accounts' &&
     v.employeeId !== caller.userId &&
+    !v.advanceId &&
     isFinalApproval(v.approvalStatus) &&
     (v.paidPaise ?? 0) < (v.approvedTotalPaise ?? 0)
   );

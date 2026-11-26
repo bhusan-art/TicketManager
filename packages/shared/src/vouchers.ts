@@ -59,6 +59,8 @@ export const PAYMENT_STATUSES = [
   'payment_processing',
   'partially_paid',
   'paid',
+  /** Tagged to an advance: covered by the advance's settlement, never paid on its own. */
+  'against_advance',
 ] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
@@ -68,6 +70,7 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   payment_processing: 'Payment processing',
   partially_paid: 'Partially paid',
   paid: 'Paid',
+  against_advance: 'Settled from advance',
 };
 
 /** The tabs on My Expenses. Each groups several approval statuses. */
@@ -168,6 +171,8 @@ export type VoucherLineInput = z.input<typeof voucherLineInputSchema>;
 
 export const createVoucherSchema = z.object({
   purpose: optionalText(200),
+  /** An open advance of the employee's that this claim settles. */
+  advanceId: z.uuid().nullable().optional(),
   lines: z.array(voucherLineInputSchema).max(50, 'A voucher can have at most 50 lines').default([]),
 });
 export type CreateVoucherInput = z.input<typeof createVoucherSchema>;
@@ -264,6 +269,8 @@ export interface VoucherDetail {
   /** Who holds the voucher now, e.g. "Amit Verma" or "Accounts". Null when nobody does. */
   waitingOn: string | null;
   events: VoucherEvent[];
+  /** The advance this claim settles, if any. Such a claim is never paid on its own. */
+  advance: { id: string; number: string | null } | null;
   /** Instalments, newest last, reversed ones included. */
   payments: Payment[];
   paidPaise: number;

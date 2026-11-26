@@ -210,7 +210,7 @@ export function VoucherDetails() {
       )}
       {v.can.answer && <AnswerPanel voucher={v} onChange={setVoucher} onDone={done} />}
       {v.can.approve && <ReviewPanel key={v.version} voucher={v} onDone={done} />}
-      {v.paymentStatus !== 'not_due' && (
+      {v.paymentStatus !== 'not_due' && v.paymentStatus !== 'against_advance' && (
         <PaymentPanel key={`pay-${v.version}`} voucher={v} onDone={done} />
       )}
 
@@ -259,6 +259,15 @@ export function VoucherDetails() {
             <dd>{v.manager?.name ?? '—'}</dd>
             <dt>Waiting on</dt>
             <dd>{v.waitingOn ?? 'Nobody'}</dd>
+            {v.advance && (
+              <>
+                <dt>Advance</dt>
+                <dd>
+                  <Link to={`/advances/${v.advance.id}`}>{v.advance.number}</Link>
+                  <div className="muted small">Settled from this advance, not paid separately.</div>
+                </dd>
+              </>
+            )}
             <dt>Payment</dt>
             <dd>
               <PaymentStatusPill status={v.paymentStatus} />

@@ -46,8 +46,8 @@ export async function getAccountsDashboard(db: Db, now = new Date()): Promise<Ac
     sql`select
       count(*) filter (where approval_status = 'pending_accounts') as verify_n,
       coalesce(sum(total_paise) filter (where approval_status = 'pending_accounts'), 0) as verify_amt,
-      count(*) filter (where approval_status in ${FINAL} and paid_paise < approved_total_paise) as due_n,
-      coalesce(sum(approved_total_paise - paid_paise) filter (where approval_status in ${FINAL}), 0) as due_amt,
+      count(*) filter (where approval_status in ${FINAL} and advance_id is null and paid_paise < approved_total_paise) as due_n,
+      coalesce(sum(approved_total_paise - paid_paise) filter (where approval_status in ${FINAL} and advance_id is null), 0) as due_amt,
       count(*) filter (where submitted_at is not null and approval_status <> 'cancelled'
         and to_char(submitted_at at time zone ${TZ}, 'YYYY-MM') = ${month}) as claimed_n,
       coalesce(sum(total_paise) filter (where submitted_at is not null and approval_status <> 'cancelled'
@@ -68,7 +68,7 @@ export async function getAccountsDashboard(db: Db, now = new Date()): Promise<Ac
         select ${today}::date - (decided_at at time zone ${TZ})::date as age,
           approved_total_paise - paid_paise as owed
         from vouchers
-        where approval_status in ${FINAL} and paid_paise < approved_total_paise
+        where approval_status in ${FINAL} and advance_id is null and paid_paise < approved_total_paise
       ) t group by 1`,
   );
   const approvedByMonth = await rows<{ month: string; amt: string }>(
@@ -83,6 +83,15 @@ export async function getAccountsDashboard(db: Db, now = new Date()): Promise<Ac
       where reversed_at is null and to_char(paid_on, 'YYYY-MM') >= ${months[0]} group by 1`,
   );
 
+  const [adv] = await rows<Record<string, string>>(
+    db,
+    sql`select count(*) as n,
+        count(*) filter (where a.settle_by < ${today}::date) as overdue,
+        coalesce(sum((select sum(t.amount_paise) from advance_transactions t
+          where t.advance_id = a.id and t.kind = 'disbursement' and t.reversed_at is null)), 0) as amt
+      from advances a where a.status = 'open'`,
+  );
+
   const lookup = (list: { month: string; amt: string }[], m: string) =>
     n(list.find((r) => r.month === m)?.amt);
   return {
@@ -90,6 +99,7 @@ export async function getAccountsDashboard(db: Db, now = new Date()): Promise<Ac
     awaitingPayment: { count: n(head!.due_n), amountPaise: n(head!.due_amt) },
     paidThisMonth: { count: n(paid!.n), amountPaise: n(paid!.amt) },
     claimedThisMonth: { count: n(head!.claimed_n), amountPaise: n(head!.claimed_amt) },
+    openAdvances: { count: n(adv!.n), amountPaise: n(adv!.amt), overdue: n(adv!.overdue) },
     liabilityAging: (['0-7', '8-30', '31-60', '60+'] as const).map((bucket) => {
       const r = aging.find((a) => a.bucket === bucket);
       return { bucket, count: n(r?.n), amountPaise: n(r?.amt) };
@@ -117,7 +127,8 @@ const MONEY = sql`
   count(*) as vouchers,
   coalesce(sum(v.total_paise), 0) as claimed,
   coalesce(sum(v.approved_total_paise) filter (where v.approval_status in ${FINAL}), 0) as approved,
-  coalesce(sum(v.paid_paise) filter (where v.approval_status in ${FINAL}), 0) as paid,
+  coalesce(sum(case when v.advance_id is null then v.paid_paise else v.approved_total_paise end)
+    filter (where v.approval_status in ${FINAL}), 0) as paid,
   coalesce(sum(v.total_paise) filter (where v.approval_status in ${UNDECIDED}), 0) as in_review,
   coalesce(sum(v.total_paise) filter (where v.approval_status in ${REJECTED}), 0) as rejected`;
 
@@ -220,7 +231,7 @@ export async function getLiability(
         v.approved_total_paise as approved, v.paid_paise as paid
       from vouchers v join users u on u.id = v.employee_id
       left join departments d on d.id = v.department_id
-      where v.approval_status in ${FINAL} and v.paid_paise < v.approved_total_paise
+      where v.approval_status in ${FINAL} and v.advance_id is null and v.paid_paise < v.approved_total_paise
       ${f.departmentId ? sql`and v.department_id = ${f.departmentId}` : sql``}
       order by v.decided_at asc nulls first, v.id`,
   );
