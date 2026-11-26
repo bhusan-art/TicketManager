@@ -1,6 +1,6 @@
 import type { Role } from '@ticketmanager/shared';
 import request from 'supertest';
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, expect, it } from 'vitest';
 import { categories } from '../src/db/schema.js';
 import { bearer, describeWithDb, makeUser, signIn, testServices, useTestDb } from './helpers.js';
 
