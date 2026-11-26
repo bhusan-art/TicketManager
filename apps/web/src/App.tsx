@@ -1,10 +1,14 @@
 import { Route, Routes } from 'react-router';
 import { RequireAuth, RequireRole } from './auth/guards';
 import { Layout } from './components/Layout';
+import { Categories } from './pages/admin/Categories';
 import { Departments } from './pages/admin/Departments';
 import { UserForm } from './pages/admin/UserForm';
 import { Users } from './pages/admin/Users';
 import { Dashboard } from './pages/Dashboard';
+import { MyExpenses } from './pages/expenses/MyExpenses';
+import { VoucherDetails } from './pages/expenses/VoucherDetails';
+import { VoucherForm } from './pages/expenses/VoucherForm';
 import { ForgotPassword } from './pages/ForgotPassword';
 import { Login } from './pages/Login';
 import { Placeholder } from './pages/Placeholder';
@@ -22,7 +26,10 @@ export function App() {
       <Route element={<RequireAuth />}>
         <Route element={<Layout />}>
           <Route index element={<Dashboard />} />
-          <Route path="expenses" element={<Placeholder title="My expenses" phase={2} />} />
+          <Route path="expenses" element={<MyExpenses />} />
+          <Route path="expenses/new" element={<VoucherForm key="new" />} />
+          <Route path="expenses/:id" element={<VoucherDetails />} />
+          <Route path="expenses/:id/edit" element={<VoucherForm key="edit" />} />
           <Route path="advances" element={<Placeholder title="Advances" phase={5} />} />
           <Route path="settlements" element={<Placeholder title="Settlements" phase={5} />} />
           <Route path="approvals" element={<Placeholder title="Approvals" phase={3} />} />
@@ -60,6 +67,14 @@ export function App() {
             element={
               <RequireRole roles={['admin']}>
                 <Departments />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="admin/categories"
+            element={
+              <RequireRole roles={['admin']}>
+                <Categories />
               </RequireRole>
             }
           />

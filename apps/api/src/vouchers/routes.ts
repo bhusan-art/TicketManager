@@ -1,0 +1,568 @@
+import {
+  ATTACHMENT_TYPES,
+  MAX_ATTACHMENTS_PER_LINE,
+  VOUCHER_STATUS_GROUPS,
+  cancelVoucherSchema,
+  createVoucherSchema,
+  listVouchersQuerySchema,
+  paginationQuerySchema,
+  updateVoucherSchema,
+  voucherActionSchema,
+  voucherSubmitIssues,
+  voucherTotal,
+  type ApprovalStatus,
+  type Issue,
+} from '@ticketmanager/shared';
+import { and, count, eq, ilike, inArray, notInArray, or, sql, type SQL } from 'drizzle-orm';
+import { Router, type Request } from 'express';
+import { z } from 'zod';
+import { recordAudit } from '../audit/audit.js';
+import { requireAuth } from '../auth/middleware.js';
+import type { Tx } from '../db/client.js';
+import { categories, users, voucherAttachments, voucherLines, vouchers } from '../db/schema.js';
+import { AppError, conflict, notFound } from '../http/errors.js';
+import { paginate } from '../http/pagination.js';
+import {
+  cleanFilename,
+  contentDisposition,
+  singleFileUpload,
+  sniffContentType,
+} from '../http/upload.js';
+import { parseBody, parseParams, parseQuery } from '../http/validate.js';
+import type { Services } from '../services.js';
+import { readFile, saveFile } from '../storage/files.js';
+import { nextDocumentNumber } from './numbering.js';
+import { renderVoucherPdf } from './pdf.js';
+import {
+  canView,
+  getVoucherDetail,
+  getVoucherLines,
+  permissions,
+  selectVoucherSummaries,
+  toVoucherSummary,
+} from './queries.js';
+
+const idParams = z.object({ id: z.uuid() });
+const lineParams = idParams.extend({ lineId: z.uuid() });
+const attachmentParams = idParams.extend({ attachmentId: z.uuid() });
+const downloadQuery = z.object({ download: z.enum(['0', '1']).optional() });
+
+type LineInput = z.infer<typeof createVoucherSchema>['lines'][number];
+
+const invalid = (message: string, issues: Issue[]) =>
+  new AppError('VALIDATION_FAILED', message, issues);
+
+/** Where a newly submitted voucher goes first, from the claimant's roles (requirements review). */
+function firstStage(user: {
+  roles: string[];
+  managerId: string | null;
+}): Extract<ApprovalStatus, 'pending_manager' | 'pending_accounts' | 'pending_director'> {
+  // An Accounts user's own claim is checked by the Director, never by their own team.
+  if (user.roles.includes('accounts')) return 'pending_director';
+  // Managers' and directors' own claims go straight to Accounts.
+  if (user.roles.includes('manager') || user.roles.includes('director')) return 'pending_accounts';
+  if (!user.managerId) {
+    throw new AppError(
+      'VALIDATION_FAILED',
+      'You have no reporting manager yet. Ask an admin to set one before you submit.',
+      [{ path: 'manager', message: 'No reporting manager' }],
+    );
+  }
+  return 'pending_manager';
+}
+
+/** Employee expense vouchers: drafts, lines, proofs, submit, cancel and the voucher PDF. */
+export function vouchersRouter({ db }: Services) {
+  const router = Router();
+  router.use(requireAuth);
+
+  /** Locks the voucher for the rest of the transaction and checks the caller may change it. */
+  async function lockOwn(tx: Tx, req: Request, id: string, version?: number) {
+    const [voucher] = await tx.select().from(vouchers).where(eq(vouchers.id, id)).for('update');
+    if (!voucher || !canView(req.auth!, voucher)) throw notFound('Voucher');
+    if (version !== undefined && version !== voucher.version) {
+      throw conflict('This voucher was changed somewhere else. Reload it and try again.', {
+        currentVersion: voucher.version,
+      });
+    }
+    return { voucher, can: permissions(req.auth!, voucher) };
+  }
+
+  const notEditable = () =>
+    conflict('This voucher can no longer be edited. Only drafts can be changed.');
+
+  /** Category ids must exist. A line may keep an inactive category it already had. */
+  async function assertCategories(tx: Tx, lines: LineInput[], keep: Set<string>) {
+    const ids = [...new Set(lines.map((l) => l.categoryId).filter((id): id is string => !!id))];
+    if (ids.length === 0) return;
+    const rows = await tx
+      .select({ id: categories.id, status: categories.status })
+      .from(categories)
+      .where(inArray(categories.id, ids));
+    const usable = new Set(
+      rows.filter((r) => r.status === 'active' || keep.has(r.id)).map((r) => r.id),
+    );
+    const issues = lines.flatMap((l, i) =>
+      l.categoryId && !usable.has(l.categoryId)
+        ? [{ path: `lines.${i}.categoryId`, message: 'This category is not available' }]
+        : [],
+    );
+    if (issues.length) throw invalid('Some categories are not available', issues);
+  }
+
+  const lineValues = (line: LineInput, position: number) => ({
+    position,
+    categoryId: line.categoryId ?? null,
+    expenseDate: line.expenseDate ?? null,
+    description: line.description ?? null,
+    vendorName: line.vendorName ?? null,
+    amountPaise: line.amountPaise,
+    isGst: line.isGst,
+    // GST details only mean something on a GST line.
+    gstin: line.isGst ? (line.gstin ?? null) : null,
+    invoiceNumber: line.invoiceNumber ?? null,
+    cgstPaise: line.isGst ? line.cgstPaise : 0,
+    sgstPaise: line.isGst ? line.sgstPaise : 0,
+    igstPaise: line.isGst ? line.igstPaise : 0,
+    missingProofReason: line.missingProofReason ?? null,
+  });
+
+  async function detail(req: Request, id: string) {
+    const voucher = await getVoucherDetail(db, id, req.auth!);
+    if (!voucher || !canView(req.auth!, { employeeId: voucher.employee.id })) {
+      throw notFound('Voucher');
+    }
+    return voucher;
+  }
+
+  // ---- List and read ----
+
+  router.get('/', async (req, res) => {
+    const page = parseQuery(paginationQuerySchema, req);
+    const filters = parseQuery(listVouchersQuerySchema, req);
+    const where: SQL[] = [eq(vouchers.employeeId, req.auth!.userId)];
+    if (filters.status) {
+      where.push(inArray(vouchers.approvalStatus, [...VOUCHER_STATUS_GROUPS[filters.status]]));
+    }
+    if (filters.search) {
+      const term = `%${filters.search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+      where.push(or(ilike(vouchers.number, term), ilike(vouchers.purpose, term))!);
+    }
+    const condition = and(...where);
+    const result = await paginate({
+      query: page,
+      sortable: {
+        createdAt: vouchers.createdAt,
+        updatedAt: vouchers.updatedAt,
+        submittedAt: vouchers.submittedAt,
+        number: vouchers.number,
+        totalPaise: vouchers.totalPaise,
+      },
+      defaultSort: '-createdAt',
+      tiebreaker: vouchers.id,
+      fetch: ({ orderBy, limit, offset }) =>
+        selectVoucherSummaries(db)
+          .where(condition)
+          .orderBy(...orderBy)
+          .limit(limit)
+          .offset(offset),
+      count: () => db.$count(vouchers, condition),
+    });
+    res.json({ data: result.data.map(toVoucherSummary), meta: result.meta });
+  });
+
+  /** Counts per My Expenses tab. */
+  router.get('/counts', async (req, res) => {
+    const rows = await db
+      .select({ status: vouchers.approvalStatus, n: count() })
+      .from(vouchers)
+      .where(eq(vouchers.employeeId, req.auth!.userId))
+      .groupBy(vouchers.approvalStatus);
+    const counts: Record<string, number> = { all: 0 };
+    for (const [group, statuses] of Object.entries(VOUCHER_STATUS_GROUPS)) {
+      counts[group] = rows
+        .filter((r) => (statuses as readonly string[]).includes(r.status))
+        .reduce((sum, r) => sum + r.n, 0);
+    }
+    counts.all = rows.reduce((sum, r) => sum + r.n, 0);
+    res.json(counts);
+  });
+
+  router.get('/:id', async (req, res) => {
+    const { id } = parseParams(idParams, req);
+    res.json(await detail(req, id));
+  });
+
+  // ---- Drafts ----
+
+  router.post('/', async (req, res) => {
+    const input = parseBody(createVoucherSchema, req);
+    const id = await db.transaction(async (tx) => {
+      await assertCategories(tx, input.lines, new Set());
+      const [voucher] = await tx
+        .insert(vouchers)
+        .values({
+          employeeId: req.auth!.userId,
+          purpose: input.purpose ?? null,
+          totalPaise: voucherTotal(input.lines),
+        })
+        .returning({ id: vouchers.id });
+      if (input.lines.length) {
+        await tx
+          .insert(voucherLines)
+          .values(input.lines.map((l, i) => ({ voucherId: voucher!.id, ...lineValues(l, i) })));
+      }
+      await recordAudit(tx, {
+        action: 'voucher.created',
+        entityType: 'voucher',
+        entityId: voucher!.id,
+        actorId: req.auth!.userId,
+        actorRole: req.auth!.activeRole,
+        after: { purpose: input.purpose ?? null, lines: input.lines.length },
+        req,
+      });
+      return voucher!.id;
+    });
+    res.status(201).json(await detail(req, id));
+  });
+
+  /** Replaces the purpose and lines. Lines with an id are kept (with their proofs). */
+  router.patch('/:id', async (req, res) => {
+    const { id } = parseParams(idParams, req);
+    const input = parseBody(updateVoucherSchema, req);
+    await db.transaction(async (tx) => {
+      const { voucher, can } = await lockOwn(tx, req, id, input.version);
+      if (!can.edit) throw notEditable();
+
+      const existing = await tx
+        .select({ id: voucherLines.id, categoryId: voucherLines.categoryId })
+        .from(voucherLines)
+        .where(eq(voucherLines.voucherId, id));
+      const existingIds = new Set(existing.map((l) => l.id));
+      const unknown = input.lines.flatMap((l, i) =>
+        l.id && !existingIds.has(l.id)
+          ? [{ path: `lines.${i}.id`, message: 'This line is not on the voucher' }]
+          : [],
+      );
+      const ids = input.lines.map((l) => l.id).filter(Boolean);
+      if (new Set(ids).size !== ids.length) {
+        unknown.push({ path: 'lines', message: 'A line appears twice' });
+      }
+      if (unknown.length) throw invalid('Some lines are not on this voucher', unknown);
+      await assertCategories(
+        tx,
+        input.lines,
+        new Set(existing.map((l) => l.categoryId).filter((c): c is string => !!c)),
+      );
+
+      const keep = input.lines.map((l) => l.id).filter((x): x is string => !!x);
+      // Removing a line removes its proofs too (the database cascades and deletes the files).
+      await tx
+        .delete(voucherLines)
+        .where(
+          keep.length
+            ? and(eq(voucherLines.voucherId, id), notInArray(voucherLines.id, keep))
+            : eq(voucherLines.voucherId, id),
+        );
+      for (const [i, line] of input.lines.entries()) {
+        if (line.id) {
+          await tx
+            .update(voucherLines)
+            .set(lineValues(line, i))
+            .where(eq(voucherLines.id, line.id));
+        } else {
+          await tx.insert(voucherLines).values({ voucherId: id, ...lineValues(line, i) });
+        }
+      }
+      const total = voucherTotal(input.lines);
+      await tx
+        .update(vouchers)
+        .set({
+          purpose: input.purpose ?? null,
+          totalPaise: total,
+          version: sql`${vouchers.version} + 1`,
+        })
+        .where(eq(vouchers.id, id));
+      await recordAudit(tx, {
+        action: 'voucher.updated',
+        entityType: 'voucher',
+        entityId: id,
+        actorId: req.auth!.userId,
+        actorRole: req.auth!.activeRole,
+        before: { purpose: voucher.purpose, totalPaise: voucher.totalPaise },
+        after: { purpose: input.purpose ?? null, totalPaise: total, lines: input.lines.length },
+        req,
+      });
+    });
+    res.json(await detail(req, id));
+  });
+
+  /** Deletes a draft that was never submitted. */
+  router.delete('/:id', async (req, res) => {
+    const { id } = parseParams(idParams, req);
+    await db.transaction(async (tx) => {
+      const { voucher, can } = await lockOwn(tx, req, id);
+      if (!can.delete) throw conflict('Only drafts that were never submitted can be deleted');
+      await tx.delete(vouchers).where(eq(vouchers.id, id));
+      await recordAudit(tx, {
+        action: 'voucher.deleted',
+        entityType: 'voucher',
+        entityId: id,
+        actorId: req.auth!.userId,
+        actorRole: req.auth!.activeRole,
+        before: { purpose: voucher.purpose, totalPaise: voucher.totalPaise },
+        req,
+      });
+    });
+    res.status(204).end();
+  });
+
+  // ---- Submit and cancel ----
+
+  router.post('/:id/submit', async (req, res) => {
+    const { id } = parseParams(idParams, req);
+    const { version } = parseBody(voucherActionSchema, req);
+    await db.transaction(async (tx) => {
+      const { voucher, can } = await lockOwn(tx, req, id, version);
+      if (!can.submit) throw conflict('This voucher has already been submitted');
+
+      const lines = await getVoucherLines(tx, id);
+      const issues = voucherSubmitIssues({
+        purpose: voucher.purpose,
+        lines: lines.map((l) => ({
+          ...l,
+          categoryId: l.category?.id ?? null,
+          attachmentCount: l.attachments.length,
+        })),
+      });
+      const categoryIds = lines.map((l) => l.category?.id).filter((c): c is string => !!c);
+      if (categoryIds.length) {
+        const inactive = new Set(
+          (
+            await tx
+              .select({ id: categories.id })
+              .from(categories)
+              .where(and(inArray(categories.id, categoryIds), eq(categories.status, 'inactive')))
+          ).map((c) => c.id),
+        );
+        lines.forEach((l, i) => {
+          if (l.category && inactive.has(l.category.id)) {
+            issues.push({
+              path: `lines.${i}.categoryId`,
+              message: `"${l.category.name}" is no longer in use. Choose another category.`,
+            });
+          }
+        });
+      }
+      if (issues.length) throw invalid('Fix these before submitting', issues);
+
+      const [claimant] = await tx
+        .select({
+          roles: users.roles,
+          managerId: users.managerId,
+          departmentId: users.departmentId,
+        })
+        .from(users)
+        .where(eq(users.id, voucher.employeeId));
+      const status = firstStage(claimant!);
+      const number = voucher.number ?? (await nextDocumentNumber(tx, 'EXP'));
+      const changes = {
+        number,
+        approvalStatus: status,
+        departmentId: claimant!.departmentId,
+        managerId: status === 'pending_manager' ? claimant!.managerId : null,
+        submittedAt: new Date(),
+      };
+      await tx
+        .update(vouchers)
+        .set({ ...changes, version: sql`${vouchers.version} + 1` })
+        .where(eq(vouchers.id, id));
+      await recordAudit(tx, {
+        action: 'voucher.submitted',
+        entityType: 'voucher',
+        entityId: id,
+        actorId: req.auth!.userId,
+        actorRole: req.auth!.activeRole,
+        before: { approvalStatus: voucher.approvalStatus },
+        after: { ...changes, totalPaise: voucher.totalPaise },
+        req,
+      });
+    });
+    res.json(await detail(req, id));
+  });
+
+  router.post('/:id/cancel', async (req, res) => {
+    const { id } = parseParams(idParams, req);
+    const { version, reason } = parseBody(cancelVoucherSchema, req);
+    await db.transaction(async (tx) => {
+      const { voucher, can } = await lockOwn(tx, req, id, version);
+      if (!can.cancel) {
+        throw conflict(
+          voucher.approvalStatus === 'draft'
+            ? 'Drafts are deleted, not cancelled'
+            : 'This voucher can no longer be cancelled',
+        );
+      }
+      const changes = {
+        approvalStatus: 'cancelled' as const,
+        cancelledAt: new Date(),
+        cancelReason: reason,
+      };
+      await tx
+        .update(vouchers)
+        .set({ ...changes, version: sql`${vouchers.version} + 1` })
+        .where(eq(vouchers.id, id));
+      await recordAudit(tx, {
+        action: 'voucher.cancelled',
+        entityType: 'voucher',
+        entityId: id,
+        actorId: req.auth!.userId,
+        actorRole: req.auth!.activeRole,
+        before: { approvalStatus: voucher.approvalStatus },
+        after: changes,
+        req,
+      });
+    });
+    res.json(await detail(req, id));
+  });
+
+  // ---- Proofs ----
+
+  router.post('/:id/lines/:lineId/attachments', singleFileUpload('file'), async (req, res) => {
+    const { id, lineId } = parseParams(lineParams, req);
+    const upload = req.file!;
+    const contentType = sniffContentType(upload.buffer);
+    if (!contentType || !(contentType in ATTACHMENT_TYPES)) {
+      const message = 'Upload a PDF, JPG, PNG or WEBP file';
+      throw invalid(message, [{ path: 'file', message }]);
+    }
+    const attachmentId = await db.transaction(async (tx) => {
+      const { can } = await lockOwn(tx, req, id);
+      if (!can.edit) throw notEditable();
+      const [line] = await tx
+        .select({ id: voucherLines.id })
+        .from(voucherLines)
+        .where(and(eq(voucherLines.id, lineId), eq(voucherLines.voucherId, id)));
+      if (!line) throw notFound('Line');
+      const existing = await tx.$count(voucherAttachments, eq(voucherAttachments.lineId, lineId));
+      if (existing >= MAX_ATTACHMENTS_PER_LINE) {
+        throw conflict(`A line can have at most ${MAX_ATTACHMENTS_PER_LINE} files`);
+      }
+      const file = await saveFile(tx, {
+        filename: cleanFilename(upload.originalname),
+        contentType,
+        data: upload.buffer,
+        uploadedBy: req.auth!.userId,
+      });
+      const [attachment] = await tx
+        .insert(voucherAttachments)
+        .values({ voucherId: id, lineId, fileId: file.id })
+        .returning({ id: voucherAttachments.id });
+      await tx
+        .update(vouchers)
+        .set({ version: sql`${vouchers.version} + 1` })
+        .where(eq(vouchers.id, id));
+      await recordAudit(tx, {
+        action: 'voucher.attachment_added',
+        entityType: 'voucher',
+        entityId: id,
+        actorId: req.auth!.userId,
+        actorRole: req.auth!.activeRole,
+        after: { lineId, filename: file.filename, sizeBytes: file.sizeBytes, sha256: file.sha256 },
+        req,
+      });
+      return attachment!.id;
+    });
+    const voucher = await detail(req, id);
+    const attachment = voucher.lines
+      .flatMap((l) => l.attachments)
+      .find((a) => a.id === attachmentId);
+    res.status(201).json({ attachment, version: voucher.version });
+  });
+
+  async function findAttachment(voucherId: string, attachmentId: string) {
+    const [row] = await db
+      .select({
+        id: voucherAttachments.id,
+        fileId: voucherAttachments.fileId,
+        lineId: voucherAttachments.lineId,
+      })
+      .from(voucherAttachments)
+      .where(
+        and(eq(voucherAttachments.id, attachmentId), eq(voucherAttachments.voucherId, voucherId)),
+      );
+    if (!row) throw notFound('Attachment');
+    return row;
+  }
+
+  router.get('/:id/attachments/:attachmentId', async (req, res) => {
+    const { id, attachmentId } = parseParams(attachmentParams, req);
+    const { download } = parseQuery(downloadQuery, req);
+    const [voucher] = await db.select().from(vouchers).where(eq(vouchers.id, id));
+    if (!voucher || !canView(req.auth!, voucher)) throw notFound('Voucher');
+    const attachment = await findAttachment(id, attachmentId);
+    const file = await readFile(db, attachment.fileId);
+    if (!file) throw notFound('Attachment');
+    res
+      .status(200)
+      .type(file.contentType)
+      .set({
+        'Content-Disposition': contentDisposition(
+          download === '1' ? 'attachment' : 'inline',
+          file.filename,
+        ),
+        'Content-Length': String(file.sizeBytes),
+        'Cache-Control': 'private, no-store',
+        'X-Content-Type-Options': 'nosniff',
+        // An uploaded file must never run as a page on our origin.
+        'Content-Security-Policy':
+          "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
+      })
+      .end(file.data);
+  });
+
+  router.delete('/:id/attachments/:attachmentId', async (req, res) => {
+    const { id, attachmentId } = parseParams(attachmentParams, req);
+    const version = await db.transaction(async (tx) => {
+      const { can } = await lockOwn(tx, req, id);
+      if (!can.edit) throw notEditable();
+      const attachment = await findAttachment(id, attachmentId);
+      await tx.delete(voucherAttachments).where(eq(voucherAttachments.id, attachment.id));
+      const [updated] = await tx
+        .update(vouchers)
+        .set({ version: sql`${vouchers.version} + 1` })
+        .where(eq(vouchers.id, id))
+        .returning({ version: vouchers.version });
+      await recordAudit(tx, {
+        action: 'voucher.attachment_removed',
+        entityType: 'voucher',
+        entityId: id,
+        actorId: req.auth!.userId,
+        actorRole: req.auth!.activeRole,
+        before: { attachmentId, lineId: attachment.lineId },
+        req,
+      });
+      return updated!.version;
+    });
+    res.json({ version });
+  });
+
+  // ---- PDF ----
+
+  router.get('/:id/pdf', async (req, res) => {
+    const { id } = parseParams(idParams, req);
+    const voucher = await detail(req, id);
+    const pdf = await renderVoucherPdf(voucher);
+    const name = `${voucher.number ?? 'draft-voucher'}.pdf`;
+    res
+      .status(200)
+      .type('application/pdf')
+      .set({
+        'Content-Disposition': contentDisposition('attachment', name),
+        'Cache-Control': 'private, no-store',
+      })
+      .end(pdf);
+  });
+
+  return router;
+}

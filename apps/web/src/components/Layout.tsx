@@ -8,6 +8,7 @@ import {
   LogOut,
   Receipt,
   Scale,
+  Tags,
   User,
   Users,
   Wallet,
@@ -36,6 +37,7 @@ const NAV: NavItem[] = [
   { to: '/reports', label: 'Reports', icon: ChartColumn, roles: ['accounts', 'director', 'admin'] },
   { to: '/admin/users', label: 'Users & roles', icon: Users, roles: ['admin'] },
   { to: '/admin/departments', label: 'Departments', icon: Building2, roles: ['admin'] },
+  { to: '/admin/categories', label: 'Categories', icon: Tags, roles: ['admin'] },
   { to: '/notifications', label: 'Notifications', icon: Bell },
   { to: '/profile', label: 'Profile', icon: User },
 ];
