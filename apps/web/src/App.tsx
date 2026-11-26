@@ -5,6 +5,7 @@ import { Categories } from './pages/admin/Categories';
 import { Departments } from './pages/admin/Departments';
 import { UserForm } from './pages/admin/UserForm';
 import { Users } from './pages/admin/Users';
+import { ApprovalQueue } from './pages/approvals/ApprovalQueue';
 import { Dashboard } from './pages/Dashboard';
 import { MyExpenses } from './pages/expenses/MyExpenses';
 import { VoucherDetails } from './pages/expenses/VoucherDetails';
@@ -32,8 +33,24 @@ export function App() {
           <Route path="expenses/:id/edit" element={<VoucherForm key="edit" />} />
           <Route path="advances" element={<Placeholder title="Advances" phase={5} />} />
           <Route path="settlements" element={<Placeholder title="Settlements" phase={5} />} />
-          <Route path="approvals" element={<Placeholder title="Approvals" phase={3} />} />
-          <Route path="verification" element={<Placeholder title="Verification" phase={3} />} />
+          <Route
+            path="approvals"
+            element={
+              <RequireRole roles={['manager', 'director']}>
+                <ApprovalQueue base="/approvals" />
+              </RequireRole>
+            }
+          />
+          <Route path="approvals/:id" element={<VoucherDetails />} />
+          <Route
+            path="verification"
+            element={
+              <RequireRole roles={['accounts']}>
+                <ApprovalQueue base="/verification" />
+              </RequireRole>
+            }
+          />
+          <Route path="verification/:id" element={<VoucherDetails />} />
           <Route path="payments" element={<Placeholder title="Payments" phase={4} />} />
           <Route path="reports" element={<Placeholder title="Reports" phase={4} />} />
           <Route path="notifications" element={<Placeholder title="Notifications" phase={6} />} />
