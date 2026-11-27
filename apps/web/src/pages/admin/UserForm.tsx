@@ -1,6 +1,10 @@
 import {
+  CONTRACTUAL_NEEDS_MANAGER,
+  EMPLOYMENT_TYPE_LABELS,
+  EMPLOYMENT_TYPES,
   ROLE_LABELS,
   ROLES,
+  type EmploymentType,
   formatWhatsApp,
   type DepartmentSummary,
   type Paginated,
@@ -18,6 +22,7 @@ interface FormState {
   employeeCode: string;
   designation: string;
   whatsappNumber: string;
+  employmentType: EmploymentType;
   departmentId: string;
   managerId: string;
   roles: Role[];
@@ -31,6 +36,7 @@ const empty: FormState = {
   employeeCode: '',
   designation: '',
   whatsappNumber: '',
+  employmentType: 'regular',
   departmentId: '',
   managerId: '',
   roles: ['employee'],
@@ -77,6 +83,7 @@ export function UserForm() {
           employeeCode: u.employeeCode ?? '',
           designation: u.designation ?? '',
           whatsappNumber: u.whatsappNumber ? formatWhatsApp(u.whatsappNumber) : '',
+          employmentType: u.employmentType,
           departmentId: u.department?.id ?? '',
           managerId: u.manager?.id ?? '',
           roles: u.roles,
@@ -109,6 +116,7 @@ export function UserForm() {
       employeeCode: form.employeeCode,
       designation: form.designation,
       whatsappNumber: form.whatsappNumber.trim() || null,
+      employmentType: form.employmentType,
       departmentId: form.departmentId || null,
       managerId: form.managerId || null,
       roles: ROLES.filter((r) => form.roles.includes(r)),
@@ -193,9 +201,38 @@ export function UserForm() {
           </select>
         </Field>
         <Field
-          label="Reporting manager"
-          error={fieldErrors.managerId}
-          hint="Their claims go to this person first. Only users with the Manager role are listed."
+          label="Employment type"
+          error={fieldErrors.employmentType}
+          hint="Contractual employees must have a reporting manager."
+        >
+          <select
+            value={form.employmentType}
+            onChange={(e) => set('employmentType', e.target.value as EmploymentType)}
+          >
+            {EMPLOYMENT_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {EMPLOYMENT_TYPE_LABELS[t]}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field
+          label={
+            form.employmentType === 'contractual'
+              ? 'Reporting manager (required)'
+              : 'Reporting manager'
+          }
+          error={
+            fieldErrors.managerId ??
+            (form.employmentType === 'contractual' && !form.managerId
+              ? CONTRACTUAL_NEEDS_MANAGER
+              : undefined)
+          }
+          hint={
+            form.employmentType === 'regular'
+              ? 'Their claims go to this person first. With no manager, claims go straight to Accounts. Only users with the Manager role are listed.'
+              : 'Their claims go to this person first. Only users with the Manager role are listed.'
+          }
         >
           <select value={form.managerId} onChange={(e) => set('managerId', e.target.value)}>
             <option value="">No manager</option>
@@ -255,7 +292,11 @@ export function UserForm() {
           <button
             type="submit"
             className="btn btn-primary"
-            disabled={busy || form.roles.length === 0}
+            disabled={
+              busy ||
+              form.roles.length === 0 ||
+              (form.employmentType === 'contractual' && !form.managerId)
+            }
           >
             {busy ? 'Saving…' : editing ? 'Save changes' : 'Create user'}
           </button>

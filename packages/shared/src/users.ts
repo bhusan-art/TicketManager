@@ -6,6 +6,18 @@ import { whatsappNumberField } from './whatsapp.js';
 export const USER_STATUSES = ['active', 'inactive'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 
+/**
+ * Regular employees may have no reporting manager; their claims and advances then go straight
+ * to Accounts. Contractual employees must have one.
+ */
+export const EMPLOYMENT_TYPES = ['regular', 'contractual'] as const;
+export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number];
+export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
+  regular: 'Regular',
+  contractual: 'Contractual',
+};
+export const CONTRACTUAL_NEEDS_MANAGER = 'Contractual employees need a reporting manager';
+
 const optionalText = (max: number) =>
   z
     .string()
@@ -24,6 +36,8 @@ export const createUserSchema = z.object({
   designation: optionalText(120),
   /** Mobile number linked to WhatsApp, for click-to-chat messages. */
   whatsappNumber: whatsappNumberField,
+  /** Regular when left out. */
+  employmentType: z.enum(EMPLOYMENT_TYPES).optional(),
   departmentId: optionalId,
   managerId: optionalId,
   roles: z.array(z.enum(ROLES)).min(1, 'Pick at least one role'),
@@ -53,6 +67,7 @@ export interface UserSummary {
   designation: string | null;
   /** International digits, e.g. 919876543210. */
   whatsappNumber: string | null;
+  employmentType: EmploymentType;
   roles: Role[];
   status: UserStatus;
   department: Ref | null;

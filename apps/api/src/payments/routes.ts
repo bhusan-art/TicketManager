@@ -22,7 +22,12 @@ import { parseBody, parseParams, parseQuery } from '../http/validate.js';
 import type { Services } from '../services.js';
 import { recordEvent } from '../vouchers/events.js';
 import { nextDocumentNumber } from '../vouchers/numbering.js';
-import { getVoucherDetail, toVoucherSummary, voucherSummaryColumns } from '../vouchers/queries.js';
+import {
+  getVoucherDetail,
+  projectCondition,
+  toVoucherSummary,
+  voucherSummaryColumns,
+} from '../vouchers/queries.js';
 import { canPay, canView } from '../vouchers/workflow.js';
 import { voucherMoney } from './queries.js';
 
@@ -201,7 +206,7 @@ export function paymentQueueRouter({ db }: Services) {
 
   router.get('/', async (req, res) => {
     const page = parseQuery(paginationQuerySchema, req);
-    const { view, search } = parseQuery(paymentQueueQuerySchema, req);
+    const { view, search, projectId } = parseQuery(paymentQueueQuerySchema, req);
     const where: SQL[] = [
       inArray(vouchers.approvalStatus, ['approved', 'partially_approved']),
       // Claims tagged to an advance are settled there, never paid here.
@@ -211,6 +216,7 @@ export function paymentQueueRouter({ db }: Services) {
       where.push(inArray(vouchers.paymentStatus, ['payment_pending', 'partially_paid']));
     }
     if (view === 'paid') where.push(eq(vouchers.paymentStatus, 'paid'));
+    if (projectId) where.push(projectCondition(projectId));
     if (search) {
       const term = `%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
       where.push(

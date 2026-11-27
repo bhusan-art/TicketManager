@@ -26,10 +26,12 @@ import {
   CATEGORY_STATUSES,
   EMAIL_KINDS,
   EMAIL_STATUSES,
+  EMPLOYMENT_TYPES,
   EXPORT_STATUSES,
   NOTIFICATION_ENTITIES,
   PAYMENT_MODES,
   PAYMENT_STATUSES,
+  PROJECT_STATUSES,
   ROLES,
   USER_STATUSES,
   VOUCHER_EVENT_TYPES,
@@ -74,6 +76,9 @@ export const users = pgTable(
     designation: text('designation'),
     /** WhatsApp mobile number as international digits (919876543210). */
     whatsappNumber: text('whatsapp_number'),
+    employmentType: text('employment_type', { enum: EMPLOYMENT_TYPES })
+      .notNull()
+      .default('regular'),
     departmentId: uuid('department_id').references(() => departments.id, {
       onDelete: 'set null',
     }),
@@ -199,6 +204,17 @@ export const files = pgTable('files', {
 const paise = (name: string) => bigint(name, { mode: 'number' }).notNull().default(0);
 
 /** Expense categories, managed by admins. */
+/** Company projects that vouchers are booked to. Never deleted; made inactive instead. */
+export const projects = pgTable('projects', {
+  id: pk(),
+  name: text('name').notNull().unique(),
+  code: text('code').unique(),
+  description: text('description'),
+  status: text('status', { enum: PROJECT_STATUSES }).notNull().default('active'),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
 export const categories = pgTable('categories', {
   id: pk(),
   name: text('name').notNull().unique(),
@@ -238,6 +254,8 @@ export const vouchers = pgTable(
     }),
     managerId: uuid('manager_id').references(() => users.id),
     purpose: text('purpose'),
+    /** The company project the expense was for. */
+    projectId: uuid('project_id').references((): AnyPgColumn => projects.id),
     approvalStatus: text('approval_status', { enum: APPROVAL_STATUSES }).notNull().default('draft'),
     paymentStatus: text('payment_status', { enum: PAYMENT_STATUSES }).notNull().default('not_due'),
     totalPaise: paise('total_paise'),
@@ -276,6 +294,7 @@ export const vouchers = pgTable(
     // A claim settled from an advance is never paid as well.
     check('vouchers_advance_not_paid', sql`${t.advanceId} is null or ${t.paidPaise} = 0`),
     index('vouchers_advance_idx').on(t.advanceId),
+    index('vouchers_project_idx').on(t.projectId),
   ],
 );
 

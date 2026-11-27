@@ -23,6 +23,7 @@ import { inviteEmail } from '../mail/templates.js';
 import type { Services } from '../services.js';
 import { getUserSummary, managers, toUserSummary, userWithRefs } from './queries.js';
 import {
+  assertContractualHasManager,
   assertDepartmentUsable,
   assertManagerUsable,
   assertNotLastAdmin,
@@ -92,6 +93,7 @@ export function adminRouter(services: Services) {
     const created = await db.transaction(async (tx) => {
       if (input.departmentId) await assertDepartmentUsable(tx, input.departmentId);
       if (input.managerId) await assertManagerUsable(tx, null, input.managerId);
+      assertContractualHasManager(input.employmentType ?? 'regular', input.managerId ?? null);
       const [existing] = await tx
         .select({ id: users.id })
         .from(users)
@@ -106,6 +108,7 @@ export function adminRouter(services: Services) {
           employeeCode: input.employeeCode ?? null,
           designation: input.designation ?? null,
           whatsappNumber: input.whatsappNumber ?? null,
+          employmentType: input.employmentType ?? 'regular',
           departmentId: input.departmentId ?? null,
           managerId: input.managerId ?? null,
           roles: [...new Set(input.roles)],
@@ -149,6 +152,10 @@ export function adminRouter(services: Services) {
       if (input.managerId && input.managerId !== before.managerId) {
         await assertManagerUsable(tx, id, input.managerId);
       }
+      assertContractualHasManager(
+        input.employmentType ?? before.employmentType,
+        input.managerId !== undefined ? input.managerId : before.managerId,
+      );
       const losesManager =
         before.roles.includes('manager') && (!roles.includes('manager') || status !== 'active');
       if (losesManager) {
@@ -172,6 +179,7 @@ export function adminRouter(services: Services) {
         ...(input.employeeCode !== undefined && { employeeCode: input.employeeCode }),
         ...(input.designation !== undefined && { designation: input.designation }),
         ...(input.whatsappNumber !== undefined && { whatsappNumber: input.whatsappNumber }),
+        ...(input.employmentType !== undefined && { employmentType: input.employmentType }),
         ...(input.departmentId !== undefined && { departmentId: input.departmentId }),
         ...(input.managerId !== undefined && { managerId: input.managerId }),
         ...(input.roles !== undefined && { roles }),

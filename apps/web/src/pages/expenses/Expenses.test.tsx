@@ -36,6 +36,7 @@ const summary = (over: Partial<VoucherSummary> = {}): VoucherSummary => ({
   number: 'EXP-2026-00148',
   purpose: 'Client meeting at Bengaluru',
   approvalStatus: 'pending_manager',
+  project: null,
   paymentStatus: 'not_due',
   totalPaise: 720_000,
   lineCount: 1,
@@ -78,11 +79,26 @@ describe('Submit expense', () => {
       ...signedIn,
       'POST /vouchers': () => ({ status: 201, body: voucher({ id: 'v9' }) }),
       'GET /vouchers/v9': () => ({ status: 200, body: voucher({ id: 'v9' }) }),
+      'GET /projects': () => ({
+        status: 200,
+        body: {
+          data: [
+            {
+              id: '00000000-0000-4000-8000-0000000000a1',
+              name: 'Mumbai Metro',
+              code: 'PRJ-104',
+              description: null,
+              status: 'active',
+            },
+          ],
+        },
+      }),
     });
     renderApp('/expenses/new');
     await userEvent.type(await screen.findByLabelText('Purpose'), 'Client meeting at Bengaluru');
     await screen.findByRole('option', { name: 'Travel' });
     await userEvent.selectOptions(screen.getByLabelText('Category'), 'Travel');
+    await userEvent.selectOptions(screen.getByLabelText('Project'), 'PRJ-104 · Mumbai Metro');
     await userEvent.type(screen.getByLabelText('Amount (₹)'), '7,200.5');
     await userEvent.type(screen.getByLabelText('Description'), 'Cab to client office');
     await userEvent.click(screen.getByRole('button', { name: 'Next: Attachments →' }));
@@ -90,9 +106,11 @@ describe('Submit expense', () => {
     expect(await screen.findByText('taxi.pdf')).toBeInTheDocument();
     const body = calls.find((c) => c.key === 'POST /vouchers')!.body as {
       purpose: string;
+      projectId: string | null;
       lines: { amountPaise: number; categoryId: string }[];
     };
     expect(body.purpose).toBe('Client meeting at Bengaluru');
+    expect(body.projectId).toBe('00000000-0000-4000-8000-0000000000a1');
     expect(body.lines[0]).toMatchObject({
       amountPaise: 720_050,
       categoryId: '00000000-0000-4000-8000-000000000001',

@@ -28,7 +28,12 @@ import { paginate } from '../http/pagination.js';
 import { parseBody, parseParams, parseQuery } from '../http/validate.js';
 import type { Services } from '../services.js';
 import { recordEvent } from './events.js';
-import { getVoucherDetail, toVoucherSummary, voucherSummaryColumns } from './queries.js';
+import {
+  getVoucherDetail,
+  projectCondition,
+  toVoucherSummary,
+  voucherSummaryColumns,
+} from './queries.js';
 import { canView, isFinalApproval, nextStatus, permissions } from './workflow.js';
 
 const idParams = z.object({ id: z.uuid() });
@@ -374,8 +379,9 @@ export function approvalsRouter({ db }: Services) {
 
   router.get('/', async (req, res) => {
     const page = parseQuery(paginationQuerySchema, req);
-    const { view, search } = parseQuery(approvalQueueQuerySchema, req);
+    const { view, search, projectId } = parseQuery(approvalQueueQuerySchema, req);
     const where: SQL[] = [condition(req, view)];
+    if (projectId) where.push(projectCondition(projectId));
     if (search) {
       const term = `%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
       where.push(

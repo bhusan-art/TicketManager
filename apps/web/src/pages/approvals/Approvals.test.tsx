@@ -45,6 +45,7 @@ describe('Approvals', () => {
       number: 'EXP-2026-00148',
       purpose: 'Client meeting at Bengaluru',
       approvalStatus: 'pending_manager',
+      project: null,
       paymentStatus: 'not_due',
       totalPaise: 720_000,
       lineCount: 1,

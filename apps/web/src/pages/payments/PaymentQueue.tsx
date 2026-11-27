@@ -6,6 +6,7 @@ import {
 } from '@ticketmanager/shared';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
+import { ProjectSelect, useProjects } from '../../components/ProjectFilter';
 import { FormError } from '../../components/forms';
 import { PaymentStatusPill, formatWhen } from '../../components/VoucherStatus';
 import { ApiError, apiGet } from '../../lib/api';
@@ -23,6 +24,7 @@ export function PaymentQueue() {
   const [result, setResult] = useState<Paginated<PaymentQueueItem> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState(params.get('search') ?? '');
+  const projects = useProjects();
   const view = (params.get('view') ?? 'due') as PaymentQueueView;
 
   const query = params.toString();
@@ -96,6 +98,12 @@ export function PaymentQueue() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <ProjectSelect
+          aria-label="Project"
+          projects={projects}
+          value={params.get('projectId') ?? ''}
+          onChange={(value) => setFilter('projectId', value)}
+        />
       </div>
 
       <FormError message={error} />
@@ -119,7 +127,9 @@ export function PaymentQueue() {
                   <Link to={`/payments/${v.id}`} onClick={(e) => e.stopPropagation()}>
                     {v.number}
                   </Link>
-                  <div className="muted small">{v.purpose}</div>
+                  <div className="muted small">
+                    {[v.purpose, v.project?.name].filter(Boolean).join(' · ')}
+                  </div>
                 </td>
                 <td>
                   {v.employee.name}

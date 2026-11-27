@@ -38,6 +38,8 @@ export function exportCondition(
   if (f.status) where.push(inArray(vouchers.approvalStatus, [...VOUCHER_STATUS_GROUPS[f.status]]));
   if (f.paymentStatus) where.push(eq(vouchers.paymentStatus, f.paymentStatus));
   if (f.departmentId) where.push(eq(vouchers.departmentId, f.departmentId));
+  if (f.projectId === 'none') where.push(sql`${vouchers.projectId} is null`);
+  else if (f.projectId) where.push(eq(vouchers.projectId, f.projectId));
   if (f.employeeId) where.push(eq(vouchers.employeeId, f.employeeId));
   if (f.from) where.push(sql`(${vouchers.submittedAt} at time zone ${TZ})::date >= ${f.from}`);
   if (f.to) where.push(sql`(${vouchers.submittedAt} at time zone ${TZ})::date <= ${f.to}`);

@@ -378,6 +378,7 @@ export function advancesRouter({ db }: Services) {
         .select({
           roles: users.roles,
           managerId: users.managerId,
+          employmentType: users.employmentType,
           departmentId: users.departmentId,
         })
         .from(users)

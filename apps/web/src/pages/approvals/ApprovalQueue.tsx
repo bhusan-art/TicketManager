@@ -7,6 +7,7 @@ import {
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useUser } from '../../auth/AuthContext';
+import { ProjectSelect, useProjects } from '../../components/ProjectFilter';
 import { FormError } from '../../components/forms';
 import { VoucherStatus, formatWhen } from '../../components/VoucherStatus';
 import { ApiError, apiGet } from '../../lib/api';
@@ -35,6 +36,7 @@ export function ApprovalQueue({ base }: { base: '/approvals' | '/verification' }
   const [counts, setCounts] = useState<{ pending: number; queried: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState(params.get('search') ?? '');
+  const projects = useProjects();
   const view = (params.get('view') ?? 'pending') as ApprovalView;
   const intro = INTRO[user.activeRole] ?? INTRO.manager!;
 
@@ -108,6 +110,12 @@ export function ApprovalQueue({ base }: { base: '/approvals' | '/verification' }
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <ProjectSelect
+          aria-label="Project"
+          projects={projects}
+          value={params.get('projectId') ?? ''}
+          onChange={(value) => setFilter('projectId', value)}
+        />
       </div>
 
       <FormError message={error} />
@@ -142,6 +150,7 @@ export function ApprovalQueue({ base }: { base: '/approvals' | '/verification' }
                   <div className="muted small">
                     {v.lineCount} {v.lineCount === 1 ? 'expense' : 'expenses'}
                     {v.categories.length > 0 && ` · ${v.categories.join(', ')}`}
+                    {v.project && ` · ${v.project.name}`}
                   </div>
                 </td>
                 <td>{formatWhen(v.submittedAt)}</td>
