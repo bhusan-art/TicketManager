@@ -129,7 +129,15 @@ services:
   backup:
     image: postgres:17-alpine
     <<: *restart
-    entrypoint: ['/bin/sh', '/scripts/backup.sh']
+    # Copies the scripts in without Windows line endings (a CRLF checkout breaks them), then starts.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >-
+        mkdir -p /scripts &&
+        sed 's/\r$$//' /scripts-src/backup.sh > /scripts/backup.sh &&
+        sed 's/\r$$//' /scripts-src/healthcheck.sh > /scripts/healthcheck.sh &&
+        exec /bin/sh /scripts/backup.sh
     environment:
       TZ: ${TZ:-Asia/Kolkata}
       BACKUP_TIME: ${BACKUP_TIME:-02:30}
@@ -139,7 +147,7 @@ services:
       PGDATABASE: ticketmanager
       PGPASSWORD: ${POSTGRES_PASSWORD:-ticketmanager}
     volumes:
-      - ./deploy/backup:/scripts:ro
+      - ./deploy/backup:/scripts-src:ro
       - ${BACKUP_DIR:-./backups}:/backups
     healthcheck:
       test: ['CMD', '/bin/sh', '/scripts/healthcheck.sh']

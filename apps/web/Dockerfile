@@ -16,7 +16,9 @@ COPY apps/web/nginx/common.conf apps/web/nginx/app.conf apps/web/nginx/headers.c
 COPY apps/web/nginx/http.conf.template apps/web/nginx/https.conf.template /etc/nginx/
 COPY --chmod=755 apps/web/nginx/pick-config.sh /docker-entrypoint.d/15-pick-config.sh
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
-RUN mkdir -p /etc/nginx/certs /var/www/acme
+# Strip Windows line endings in case the repository was checked out with CRLF.
+RUN sed -i 's/\r$//' /docker-entrypoint.d/15-pick-config.sh /etc/nginx/snippets/*.conf /etc/nginx/*.template \
+  && mkdir -p /etc/nginx/certs /var/www/acme
 # The official image sends access.log to stdout, so `docker compose logs web` shows requests.
 EXPOSE 80 443
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=5 \

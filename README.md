@@ -56,6 +56,9 @@ To get the latest code later: `git pull`, then `docker compose up -d --build`.
 
 To change a port, edit only `.env` (not `docker-compose.yml`), then run `docker compose up -d`.
 
+If the app doesn't open, run `docker compose ps`. Every service should say `healthy`. For one that
+doesn't, `docker compose logs <service>` (for example `docker compose logs web`) shows why.
+
 ## Running it on a server
 
 [docs/DEPLOY.md](docs/DEPLOY.md) is the step-by-step runbook for a Proxmox VM: Docker, DNS,
