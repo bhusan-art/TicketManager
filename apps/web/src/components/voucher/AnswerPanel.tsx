@@ -7,6 +7,7 @@ import { Paperclip } from 'lucide-react';
 import { useRef, useState, type FormEvent } from 'react';
 import { ApiError, api, apiUpload } from '../../lib/api';
 import { Field, FormError } from '../forms';
+import { TakePhoto } from '../TakePhoto';
 
 /** The employee's reply to a query, with the option to add a missing bill first. */
 export function AnswerPanel({
@@ -100,6 +101,7 @@ export function AnswerPanel({
         >
           <Paperclip size={16} aria-hidden /> Attach file
         </button>
+        <TakePhoto onFile={(file) => void upload(file)} disabled={busy || !lineId} />
         <input
           ref={fileInput}
           type="file"

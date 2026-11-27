@@ -1,4 +1,5 @@
 import type { ApiErrorBody, SessionResponse } from '@ticketmanager/shared';
+import { shrinkImage } from './shrinkImage';
 
 export class ApiError extends Error {
   constructor(
@@ -119,10 +120,10 @@ export const apiPost = <T>(path: string, body?: unknown) => api<T>('POST', path,
 export const apiPatch = <T>(path: string, body: unknown) => api<T>('PATCH', path, body);
 export const apiDelete = <T = void>(path: string) => api<T>('DELETE', path);
 
-/** Uploads one file as multipart form data in the field `file`. */
-export function apiUpload<T>(path: string, file: File): Promise<T> {
+/** Uploads one file as multipart form data in the field `file`. Large photos are shrunk first. */
+export async function apiUpload<T>(path: string, file: File): Promise<T> {
   const form = new FormData();
-  form.append('file', file);
+  form.append('file', await shrinkImage(file));
   return api<T>('POST', path, form);
 }
 

@@ -8,6 +8,18 @@ export function RequireAuth() {
   const { status } = useAuth();
   const location = useLocation();
   if (status === 'loading') return <p className="page-loading">Loading…</p>;
+  if (status === 'offline') {
+    return (
+      <section className="page-loading offline-page" role="status">
+        <img src="/favicon.svg" alt="" width={40} height={40} />
+        <h1>You&apos;re offline</h1>
+        <p className="muted">
+          TicketManager needs the internet to show your claims. It opens again by itself as soon as
+          you&apos;re connected.
+        </p>
+      </section>
+    );
+  }
   if (status === 'signed-out') {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }
