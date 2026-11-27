@@ -11,7 +11,8 @@ import {
 } from 'react';
 import { apiPost, refreshSession, setAccessToken, setSignedOutHandler } from '../lib/api';
 
-type Status = 'loading' | 'signed-in' | 'signed-out';
+/** `offline`: the server couldn't be reached to restore the sign-in; retried when back online. */
+type Status = 'loading' | 'signed-in' | 'signed-out' | 'offline';
 
 interface AuthState {
   status: Status;
@@ -39,25 +40,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setSignedOutHandler(() => apply(null));
-    // Restore the session from the refresh cookie, unless the user signs in first.
+    // Restore the session from the refresh cookie, unless the user signs in first. With no
+    // network (the installed app opened offline) that says nothing about being signed out:
+    // wait, and try again when the connection is back.
     let settled = false;
-    refreshSession().then(
-      (session) => {
-        if (!settled && !restored.current) apply(session);
-      },
-      () => {
-        if (!settled && !restored.current) apply(null);
-      },
-    );
+    const restore = () =>
+      refreshSession().then(
+        (session) => {
+          if (!settled && !restored.current) apply(session);
+        },
+        () => {
+          if (settled || restored.current) return;
+          setStatus('offline');
+          window.addEventListener('online', restore, { once: true });
+        },
+      );
+    void restore();
     return () => {
       settled = true;
+      window.removeEventListener('online', restore);
     };
   }, [apply]);
 
   // Refresh a minute before the access token expires.
   useEffect(() => {
     if (status !== 'signed-in') return;
-    const timer = setInterval(() => refreshSession().then((s) => s ?? apply(null)), 13 * 60 * 1000);
+    const timer = setInterval(
+      // A failed request (offline) keeps the session; the next tick or request tries again.
+      () =>
+        refreshSession().then(
+          (s) => s ?? apply(null),
+          () => {},
+        ),
+      13 * 60 * 1000,
+    );
     return () => clearInterval(timer);
   }, [status, apply]);
 

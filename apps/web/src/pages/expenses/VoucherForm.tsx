@@ -19,6 +19,9 @@ import { FileText, Paperclip, Plus, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { Field, FormError } from '../../components/forms';
+import { TakePhoto } from '../../components/TakePhoto';
+import { useTouch } from '../../lib/media';
+import { shrinkImage } from '../../lib/shrinkImage';
 import { formatBytes, formatDay } from '../../components/VoucherStatus';
 import {
   ApiError,
@@ -296,18 +299,21 @@ export function VoucherForm() {
 
   // ---- Proofs ----
 
-  async function upload(line: LineForm, file: File) {
+  async function upload(line: LineForm, original: File) {
     if (!voucher || !line.id) return;
     setError(null);
-    if (file.type && !(file.type in ATTACHMENT_TYPES)) {
-      setError(`"${file.name}" is not a PDF, JPG, PNG or WEBP file.`);
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setError(`"${file.name}" is larger than 10 MB.`);
+    if (original.type && !(original.type in ATTACHMENT_TYPES)) {
+      setError(`"${original.name}" is not a PDF, JPG, PNG or WEBP file.`);
       return;
     }
     setBusy(true);
+    // Big phone photos shrink to a fraction of their size, so check the size afterwards.
+    const file = await shrinkImage(original);
+    if (file.size > 10 * 1024 * 1024) {
+      setError(`"${original.name}" is larger than 10 MB.`);
+      setBusy(false);
+      return;
+    }
     try {
       const res = await apiUpload<{ attachment: VoucherAttachment; version: number }>(
         `/vouchers/${voucher.id}/lines/${line.id}/attachments`,
@@ -812,6 +818,7 @@ function ProofCard({
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const full = line.attachments.length >= MAX_ATTACHMENTS_PER_LINE;
+  const touch = useTouch();
   const amount = parseRupees(line.amount) ?? 0;
 
   return (
@@ -839,17 +846,18 @@ function ProofCard({
         >
           <Upload size={22} aria-hidden />
           <span>
-            Drag and drop the bill here, or{' '}
+            {touch ? 'Add the bill: take a photo, or ' : 'Drag and drop the bill here, or '}
             <button
               type="button"
               className="btn btn-link"
               disabled={busy || full}
               onClick={() => input.current?.click()}
             >
-              browse files
+              {touch ? 'choose a file' : 'browse files'}
             </button>
           </span>
           <span className="muted small">PDF, JPG, PNG or WEBP · up to 10 MB</span>
+          <TakePhoto onFile={onUpload} disabled={busy || full} label="Take a photo of the bill" />
           <input
             ref={input}
             type="file"

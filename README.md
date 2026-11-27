@@ -272,6 +272,24 @@ HTTPS (Google refuses private IP addresses).
   - Each message ends with a link to the claim. People with no number saved are listed so someone can add it.
 - APIs: `GET /vouchers/:id/whatsapp`, `GET /advances/:id/whatsapp`, `PUT /auth/me/whatsapp`.
 
+## On phones
+
+- **Layout.** Below 720px wide the app switches to a phone layout: a top bar with a menu button,
+  four tabs along the bottom for what each role uses most (plus **More**, which opens the full
+  menu), and every table row shown as a card labelled with its column names
+  (`apps/web/src/lib/tableLabels.ts`). Inputs use 16px text so iPhones don't zoom in.
+- **Bills from the camera.** On a touch screen the attachment step and query answers offer
+  **Take a photo of the bill**, which opens the back camera. Photos over 1.5 MB are shrunk in
+  the browser to at most 2000px on the long edge (JPEG), before the 10 MB check, so a typical
+  5 MB phone photo uploads as under 1 MB (`apps/web/src/lib/shrinkImage.ts`).
+- **Install as an app.** The app has a web manifest, icons and a service worker
+  (`apps/web/public/`), so phones offer **Add to Home Screen** / **Install app** (Android and
+  desktop Chrome also get **Install app** in the account menu). It opens full screen with its own
+  icon. Installing needs HTTPS, or `localhost` on your own computer.
+- **Offline.** The service worker keeps only the app's own files, never API answers, so no claim
+  or bill stays on the phone. Opened without a connection, the app says it's offline instead of
+  asking to sign in, and carries on once the connection is back. A banner shows while offline.
+
 ## Database
 
 PostgreSQL with [Drizzle ORM](https://orm.drizzle.team). Tables are defined in
