@@ -3,9 +3,11 @@
 Expense management web app: employees submit expense vouchers, managers approve them, and Accounts
 verifies and pays them. Built with PostgreSQL, Express, React and Node (TypeScript throughout).
 
-Built so far: Phases 0–5: foundation, sign-in and roles, expense vouchers, approvals, payments
-with the Accounts dashboard and reports, and advances with settlement. Notifications arrive in
-Phase 6.
+All MVP phases (0–8) are built: sign-in and roles, expense vouchers, approvals, payments with
+the Accounts dashboard and reports, advances with settlement, notifications and email, the
+document centre and audit log, and the hardening for running it on a server (HTTPS, rate
+limits, nightly backups with a tested restore). To run it on your Proxmox VM, follow
+[docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## Run it on your computer (Windows, VS Code)
 
@@ -53,6 +55,31 @@ Only the app port is open to the network; the others listen on `127.0.0.1` only.
 To get the latest code later: `git pull`, then `docker compose up -d --build`.
 
 To change a port, edit only `.env` (not `docker-compose.yml`), then run `docker compose up -d`.
+
+## Running it on a server
+
+[docs/DEPLOY.md](docs/DEPLOY.md) is the step-by-step runbook for a Proxmox VM: Docker, DNS,
+the certificate, `.env`, backups (and copies off the VM), restoring, updating, and logs. In
+short:
+
+- **HTTPS** turns on by itself when `deploy/certs/fullchain.pem` and `privkey.pem` exist; plain
+  HTTP then redirects to `PUBLIC_URL`. `deploy/install-cert.sh` is a certbot hook, and
+  `deploy/self-signed-cert.sh` makes a test certificate.
+- **nginx** (`apps/web/nginx/`) adds a Content Security Policy and the other security headers,
+  gzip, JSON access logs, and rate limits: sign-in, password reset and shared links about 10 a
+  minute per address, the rest of the API 20 a second. The API has its own per-address limits on
+  the same endpoints (`apps/api/src/http/middleware/rateLimit.ts`) besides the account lock.
+- **Backups:** the `backup` service dumps the whole database every night at `BACKUP_TIME` into
+  `BACKUP_DIR` (default `./backups`), checks each dump, keeps `BACKUP_KEEP_DAYS`, and records each
+  run for the dashboard. Take one now with `docker compose exec backup sh /scripts/backup.sh once`.
+  `./deploy/restore.sh <file>` puts a backup back. CI backs up, wipes and restores on every
+  pull request.
+- **Health:** every container has a health check (the worker's is a heartbeat from its email
+  loop). `GET /api/v1/health` reports the database, Redis and the worker. Admins see services,
+  the worker, unsent email and the last backup on the dashboard (`GET /admin/system`).
+- **Logs:** JSON lines from nginx, the API and the worker, with a shared request id; Docker keeps
+  50 MB per service.
+- With `PUBLIC_URL` on `https://`, the API refuses to start with the example secrets.
 
 ## Develop locally
 
@@ -250,5 +277,4 @@ changing callers.
 
 ## Notes
 
-- PostgreSQL uses a password from `.env` and listens only on `127.0.0.1` outside Docker. Phase 8
-  adds HTTPS, backups and the Proxmox deployment runbook.
+- PostgreSQL uses a password from `.env` and listens only on `127.0.0.1` outside Docker.

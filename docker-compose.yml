@@ -2,11 +2,18 @@
 #   cp .env.example .env    (then change the secrets)
 #   docker compose up -d --build
 # App: http://localhost:${WEB_PORT} (9080 in .env.example)   Mail catcher: http://localhost:8025
+# On a server: see docs/DEPLOY.md (HTTPS, backups, restore, updates).
 
 name: ticketmanager
 
 x-restart: &restart
   restart: unless-stopped
+  # Keep container logs from filling the disk: 5 files of 10 MB per service.
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: '5'
 
 services:
   postgres:
@@ -57,7 +64,7 @@ services:
       NODE_ENV: production
       PORT: 4000
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      APP_VERSION: ${APP_VERSION:-0.1.0}
+      APP_VERSION: ${APP_VERSION:-1.0.0}
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
@@ -103,9 +110,44 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
     <<: *restart
+    environment:
+      # HTTPS turns on by itself when deploy/certs has fullchain.pem and privkey.pem;
+      # plain HTTP is then redirected here.
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
     ports:
       - '${WEB_PORT:-8080}:80'
+      - '${HTTPS_PORT:-8443}:443'
+    volumes:
+      - ./deploy/certs:/etc/nginx/certs:ro
+      - ./deploy/acme:/var/www/acme:ro
     depends_on:
+      api:
+        condition: service_healthy
+
+  # Nightly database backup into ./backups (or BACKUP_DIR). Files live in the database, so this
+  # one dump is the whole app. Restore with deploy/restore.sh.
+  backup:
+    image: postgres:17-alpine
+    <<: *restart
+    entrypoint: ['/bin/sh', '/scripts/backup.sh']
+    environment:
+      TZ: ${TZ:-Asia/Kolkata}
+      BACKUP_TIME: ${BACKUP_TIME:-02:30}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      PGHOST: postgres
+      PGUSER: ticketmanager
+      PGDATABASE: ticketmanager
+      PGPASSWORD: ${POSTGRES_PASSWORD:-ticketmanager}
+    volumes:
+      - ./deploy/backup:/scripts:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+    healthcheck:
+      test: ['CMD', '/bin/sh', '/scripts/healthcheck.sh']
+      interval: 30s
+      timeout: 10s
+      start_period: 2m
+    depends_on:
+      # The API creates the tables, including backup_runs.
       api:
         condition: service_healthy
 

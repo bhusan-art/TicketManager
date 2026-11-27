@@ -6,7 +6,7 @@ import { loadConfig } from './config.js';
 import { createDb, runMigrations } from './db/client.js';
 import { createExportRunner } from './documents/runner.js';
 import { pruneIdempotencyKeys } from './http/middleware/idempotency.js';
-import { checks, createRedis } from './lib/dependencies.js';
+import { checks, createRedis, workerLastSeen } from './lib/dependencies.js';
 import { createLogger } from './lib/logger.js';
 import { createOutboxMailer, createWorkerWaker } from './mail/mailer.js';
 
@@ -50,7 +50,9 @@ const app = createApp({
   healthChecks: {
     database: checks.database(db),
     redis: checks.redis(redis),
+    worker: checks.worker(redis),
   },
+  workerLastSeen: workerLastSeen(redis),
 });
 
 const server = app.listen(config.PORT, () => {

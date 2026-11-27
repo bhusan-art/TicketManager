@@ -4,3 +4,5 @@
 .git
 .github
 .env
+backups
+deploy/certs

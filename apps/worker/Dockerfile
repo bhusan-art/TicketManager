@@ -20,4 +20,7 @@ COPY --from=build /app/packages/shared/dist packages/shared/dist
 COPY --from=build /app/apps/worker/package.json apps/worker/package.json
 COPY --from=build /app/apps/worker/dist apps/worker/dist
 USER node
+# Healthy while the outbox sweep (every 15 s) keeps touching the heartbeat file.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
+  CMD test -n "$(find /tmp/worker-heartbeat -mmin -2 2>/dev/null)" || exit 1
 CMD ["node", "apps/worker/dist/index.js"]

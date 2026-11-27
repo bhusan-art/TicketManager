@@ -9,9 +9,15 @@ import type { Db } from './db/client.js';
 import type { Logger } from './lib/logger.js';
 import { errorHandler, notFoundHandler } from './http/middleware/errorHandler.js';
 import { idempotency } from './http/middleware/idempotency.js';
+import {
+  createRateLimiter,
+  DEFAULT_RATE_LIMITS,
+  type RateLimits,
+} from './http/middleware/rateLimit.js';
 import { requestId } from './http/middleware/requestId.js';
 import { healthRouter, type HealthCheck } from './routes/health.js';
 import type { Services } from './services.js';
+import { systemRouter } from './system/routes.js';
 import { adminRouter } from './users/adminRoutes.js';
 import { advanceSettingsRouter, advancesRouter } from './advances/routes.js';
 import { categoriesRouter } from './categories/routes.js';
@@ -38,6 +44,10 @@ export interface AppOptions {
   db?: Db;
   /** Enables sign-in and the feature routes. Implies `db`. */
   services?: Services;
+  /** When the worker last checked in. Leave out where there is no worker (tests). */
+  workerLastSeen?: () => Promise<string | null>;
+  /** Per-address limits on sign-in and similar endpoints. `false` turns them off (tests). */
+  rateLimits?: RateLimits | false;
   /** Extra routers mounted under /api/v1, keyed by path. Feature phases add theirs here. */
   routers?: Record<string, Router>;
 }
@@ -85,6 +95,15 @@ export function createApp(options: AppOptions) {
       }
       next();
     });
+    const limits = options.rateLimits ?? DEFAULT_RATE_LIMITS;
+    if (limits) {
+      const { limit } = createRateLimiter();
+      api.post('/auth/login', limit('login', limits.login));
+      api.post('/auth/password/forgot', limit('passwordForgot', limits.passwordForgot));
+      api.post('/auth/password/reset', limit('passwordReset', limits.passwordReset));
+      api.get('/auth/google/callback', limit('google', limits.google));
+      api.get('/exports/download/:token', limit('exportLink', limits.exportLink));
+    }
     api.use('/auth', authRouter(services));
     api.use('/admin', adminRouter(services));
     api.use('/categories', categoriesRouter(services));
@@ -104,6 +123,14 @@ export function createApp(options: AppOptions) {
     api.use('/advances', whatsAppRouter('advance', services));
     api.use('/notifications', notificationsRouter(services));
     api.use('/admin/emails', emailLogRouter(services));
+    api.use(
+      '/admin/system',
+      systemRouter(services, {
+        version: options.version,
+        checks: options.healthChecks,
+        workerLastSeen: options.workerLastSeen ?? (async () => null),
+      }),
+    );
     api.use('/admin/settings/notifications', notificationSettingsRouter(services));
     api.use('/exports', exportsRouter(services));
     api.use('/audit', auditRouter(services));
