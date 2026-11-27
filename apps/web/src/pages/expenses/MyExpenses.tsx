@@ -8,6 +8,7 @@ import { Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { FormError } from '../../components/forms';
+import { PaperFormButton } from '../../components/PaperFormButton';
 import { VoucherStatus, formatDay } from '../../components/VoucherStatus';
 import { ApiError, apiGet } from '../../lib/api';
 
@@ -70,9 +71,12 @@ export function MyExpenses() {
           <h1>My expenses</h1>
           <p className="muted">Your expense vouchers, from draft to payment.</p>
         </div>
-        <Link to="/expenses/new" className="btn btn-primary">
-          <Plus size={16} aria-hidden /> New expense
-        </Link>
+        <div className="actions">
+          <PaperFormButton />
+          <Link to="/expenses/new" className="btn btn-primary">
+            <Plus size={16} aria-hidden /> New expense
+          </Link>
+        </div>
       </div>
 
       <div className="tabs" role="tablist" aria-label="Status">
