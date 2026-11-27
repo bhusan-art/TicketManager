@@ -29,6 +29,8 @@ import { useAuth, useUser } from '../auth/AuthContext';
 import { useUnreadCount } from '../lib/notifications';
 import { useInstallPrompt } from '../lib/install';
 import { useOnline, usePhone } from '../lib/media';
+import { initials } from '../lib/initials';
+import { ThemeToggle } from './ThemeToggle';
 import { useTableLabels } from '../lib/tableLabels';
 
 interface NavItem {
@@ -39,37 +41,100 @@ interface NavItem {
   roles?: Role[];
   /** Shorter label for the tab bar on phones. */
   short?: string;
+  /** Sidebar section heading. */
+  group: Group;
 }
 
+const GROUPS = ['Overview', 'Expenses', 'Accounts', 'Insights', 'Admin', 'You'] as const;
+type Group = (typeof GROUPS)[number];
+
 const NAV: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, short: 'Home' },
-  { to: '/expenses', label: 'My expenses', icon: Receipt, roles: ['employee'], short: 'Expenses' },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, short: 'Home', group: 'Overview' },
+  {
+    to: '/expenses',
+    label: 'My expenses',
+    icon: Receipt,
+    roles: ['employee'],
+    short: 'Expenses',
+    group: 'Expenses',
+  },
   {
     to: '/advances',
     label: 'Advances',
     icon: HandCoins,
     roles: ['employee', 'manager', 'accounts', 'director'],
+    group: 'Expenses',
   },
-  { to: '/settlements', label: 'Settlements', icon: Scale, roles: ['employee', 'accounts'] },
-  { to: '/approvals', label: 'Approvals', icon: CheckSquare, roles: ['manager', 'director'] },
-  { to: '/verification', label: 'Verification', icon: CheckSquare, roles: ['accounts'] },
-  { to: '/payments', label: 'Payments', icon: Wallet, roles: ['accounts'] },
-  { to: '/reports', label: 'Reports', icon: ChartColumn, roles: ['accounts', 'director', 'admin'] },
+  {
+    to: '/settlements',
+    label: 'Settlements',
+    icon: Scale,
+    roles: ['employee', 'accounts'],
+    group: 'Expenses',
+  },
+  {
+    to: '/approvals',
+    label: 'Approvals',
+    icon: CheckSquare,
+    roles: ['manager', 'director'],
+    group: 'Expenses',
+  },
+  {
+    to: '/verification',
+    label: 'Verification',
+    icon: CheckSquare,
+    roles: ['accounts'],
+    group: 'Accounts',
+  },
+  { to: '/payments', label: 'Payments', icon: Wallet, roles: ['accounts'], group: 'Accounts' },
+  {
+    to: '/reports',
+    label: 'Reports',
+    icon: ChartColumn,
+    roles: ['accounts', 'director', 'admin'],
+    group: 'Insights',
+  },
   {
     to: '/documents',
     label: 'Documents',
     icon: FileArchive,
     roles: ['employee', 'manager', 'accounts', 'director'],
+    group: 'Insights',
   },
-  { to: '/audit', label: 'Audit log', icon: History, roles: ['admin', 'director', 'accounts'] },
-  { to: '/admin/users', label: 'Users & roles', icon: Users, roles: ['admin'], short: 'Users' },
-  { to: '/admin/departments', label: 'Departments', icon: Building2, roles: ['admin'] },
-  { to: '/admin/categories', label: 'Categories', icon: Tags, roles: ['admin'] },
-  { to: '/admin/projects', label: 'Projects', icon: FolderKanban, roles: ['admin'] },
-  { to: '/admin/emails', label: 'Email log', icon: Mail, roles: ['admin'] },
-  { to: '/admin/settings', label: 'Settings', icon: Settings, roles: ['admin'] },
-  { to: '/notifications', label: 'Notifications', icon: Bell, short: 'Alerts' },
-  { to: '/profile', label: 'Profile', icon: User },
+  {
+    to: '/audit',
+    label: 'Audit log',
+    icon: History,
+    roles: ['admin', 'director', 'accounts'],
+    group: 'Insights',
+  },
+  {
+    to: '/admin/users',
+    label: 'Users & roles',
+    icon: Users,
+    roles: ['admin'],
+    short: 'Users',
+    group: 'Admin',
+  },
+  {
+    to: '/admin/departments',
+    label: 'Departments',
+    icon: Building2,
+    roles: ['admin'],
+    group: 'Admin',
+  },
+  { to: '/admin/categories', label: 'Categories', icon: Tags, roles: ['admin'], group: 'Admin' },
+  {
+    to: '/admin/projects',
+    label: 'Projects',
+    icon: FolderKanban,
+    roles: ['admin'],
+    group: 'Admin',
+  },
+  { to: '/admin/emails', label: 'Email log', icon: Mail, roles: ['admin'], group: 'Admin' },
+  { to: '/admin/settings', label: 'Settings', icon: Settings, roles: ['admin'], group: 'Admin' },
+  { to: '/notifications', label: 'Notifications', icon: Bell, short: 'Alerts', group: 'You' },
+  { to: '/profile', label: 'Profile', icon: User, group: 'You' },
 ];
 
 /** The four places each role visits most, as tabs along the bottom of a phone screen. */
@@ -80,14 +145,6 @@ const TABS: Record<Role, string[]> = {
   director: ['/', '/approvals', '/reports', '/notifications'],
   admin: ['/', '/admin/users', '/reports', '/notifications'],
 };
-
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]!.toUpperCase())
-    .join('');
 
 export function Layout() {
   const user = useUser();
@@ -114,8 +171,10 @@ export function Layout() {
     <div className={`shell${menuOpen ? ' menu-open' : ''}`}>
       <aside className="sidebar" id="main-menu">
         <div className="brand">
-          <img src="/favicon.svg" alt="" width={28} height={28} />
-          <span>TicketManager</span>
+          <span className="brand-mark" aria-hidden>
+            <img src="/favicon.svg" alt="" width={30} height={30} />
+          </span>
+          <span className="brand-name">TicketManager</span>
           <button
             type="button"
             className="icon-btn mobile-only close-menu"
@@ -131,23 +190,32 @@ export function Layout() {
           </div>
         )}
         <nav aria-label="Main">
-          {nav.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              className="nav-link"
-              onClick={() => setMenuOpen(false)}
-            >
-              <Icon size={18} aria-hidden />
-              {label}
-              {to === '/notifications' && unread > 0 && (
-                <span className="nav-count" aria-label={`${unread} unread`}>
-                  {unread > 99 ? '99+' : unread}
-                </span>
-              )}
-            </NavLink>
-          ))}
+          {GROUPS.map((group) => {
+            const items = nav.filter((item) => item.group === group);
+            if (items.length === 0) return null;
+            return (
+              <div key={group} className="nav-group">
+                {group !== 'Overview' && <span className="nav-heading">{group}</span>}
+                {items.map(({ to, label, icon: Icon }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    end={to === '/'}
+                    className="nav-link"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <Icon size={18} aria-hidden />
+                    {label}
+                    {to === '/notifications' && unread > 0 && (
+                      <span className="nav-count" aria-label={`${unread} unread`}>
+                        {unread > 99 ? '99+' : unread}
+                      </span>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            );
+          })}
         </nav>
       </aside>
       {menuOpen && <div className="backdrop" aria-hidden onClick={() => setMenuOpen(false)} />}
@@ -174,6 +242,7 @@ export function Layout() {
             disabled
           />
           <div className="topbar-actions">
+            <ThemeToggle />
             <Link
               to="/notifications"
               className="bell"
