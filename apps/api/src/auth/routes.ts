@@ -9,6 +9,7 @@ import {
   type Role,
   type SessionResponse,
   updateWhatsAppSchema,
+  SHORT_SESSION_HOURS,
 } from '@ticketmanager/shared';
 import { and, eq, ne } from 'drizzle-orm';
 import { Router, type Request, type Response } from 'express';
@@ -51,11 +52,12 @@ export function authRouter(services: Services) {
   const secure = config.PUBLIC_URL.startsWith('https://');
   const cookieBase = { httpOnly: true, secure, path: '/api/v1/auth' } as const;
 
-  function setRefreshCookie(res: Response, token: string) {
+  /** A remembered sign-in keeps its cookie for 30 days; any other one ends with the browser. */
+  function setRefreshCookie(res: Response, token: string, remember: boolean) {
     res.cookie(REFRESH_COOKIE, token, {
       ...cookieBase,
       sameSite: 'strict',
-      maxAge: config.REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000,
+      ...(remember ? { maxAge: config.REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000 } : {}),
     });
   }
 
@@ -79,6 +81,7 @@ export function authRouter(services: Services) {
     res: Response,
     user: typeof users.$inferSelect,
     method: string,
+    remember: boolean,
   ) {
     const role = defaultRole(user.roles, user.lastActiveRole);
     await db
@@ -94,16 +97,18 @@ export function authRouter(services: Services) {
       db,
       user.id,
       role,
-      config.REFRESH_TOKEN_DAYS,
+      remember
+        ? { remember: true, days: config.REFRESH_TOKEN_DAYS }
+        : { remember: false, until: new Date(Date.now() + SHORT_SESSION_HOURS * 3_600_000) },
       meta(req),
     );
-    setRefreshCookie(res, token);
+    setRefreshCookie(res, token, remember);
     await recordAudit(db, {
       action: 'auth.signed_in',
       entityType: 'user',
       entityId: user.id,
       actorId: user.id,
-      meta: { method },
+      meta: { method, remember },
       req,
     });
     return sessionResponse(user.id, sessionId, role);
@@ -115,7 +120,7 @@ export function authRouter(services: Services) {
   });
 
   router.post('/login', async (req, res) => {
-    const { email, password } = parseBody(loginSchema, req);
+    const { email, password, remember = false } = parseBody(loginSchema, req);
     const [user] = await db.select().from(users).where(eq(users.email, email));
 
     if (!user?.passwordHash) {
@@ -149,7 +154,7 @@ export function authRouter(services: Services) {
     if (user.status !== 'active') {
       throw new AppError('FORBIDDEN', 'Your account is inactive. Contact your admin.');
     }
-    res.json(await signIn(req, res, user, 'password'));
+    res.json(await signIn(req, res, user, 'password', remember));
   });
 
   router.post('/refresh', async (req, res) => {
@@ -180,7 +185,7 @@ export function authRouter(services: Services) {
       role = defaultRole(user.roles, null);
       await setSessionRole(db, result.sessionId, role);
     }
-    setRefreshCookie(res, result.token);
+    setRefreshCookie(res, result.token, result.remember);
     res.json(await sessionResponse(result.userId, result.sessionId, role));
   });
 
@@ -321,12 +326,13 @@ export function authRouter(services: Services) {
   const loginRedirect = (res: Response, error: GoogleLoginError) =>
     res.redirect(`${config.PUBLIC_URL}/login?error=${error}`);
 
-  router.get('/google/start', (_req, res) => {
+  router.get('/google/start', (req, res) => {
     if (!google) throw new AppError('NOT_FOUND', 'Google sign-in is not set up');
     const state = newToken();
     const nonce = newToken();
     const pkce = newPkce();
-    res.cookie(OAUTH_COOKIE, JSON.stringify({ state, nonce, verifier: pkce.verifier }), {
+    const remember = req.query.remember === '1';
+    res.cookie(OAUTH_COOKIE, JSON.stringify({ state, nonce, verifier: pkce.verifier, remember }), {
       httpOnly: true,
       secure,
       signed: true,
@@ -341,7 +347,7 @@ export function authRouter(services: Services) {
     if (!google) throw new AppError('NOT_FOUND', 'Google sign-in is not set up');
     const raw = req.signedCookies?.[OAUTH_COOKIE] as string | undefined;
     res.clearCookie(OAUTH_COOKIE, { path: '/api/v1/auth/google' });
-    let saved: { state: string; nonce: string; verifier: string } | undefined;
+    let saved: { state: string; nonce: string; verifier: string; remember?: boolean } | undefined;
     try {
       saved = raw ? JSON.parse(raw) : undefined;
     } catch {
@@ -365,7 +371,7 @@ export function authRouter(services: Services) {
     if (!user) return loginRedirect(res, 'google_not_registered');
     if (user.status !== 'active') return loginRedirect(res, 'google_inactive');
 
-    await signIn(req, res, user, 'google');
+    await signIn(req, res, user, 'google', saved.remember === true);
     res.redirect(`${config.PUBLIC_URL}/`);
   });
 

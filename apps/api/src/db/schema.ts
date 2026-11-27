@@ -121,6 +121,8 @@ export const sessions = pgTable(
     tokenHash: text('token_hash').notNull().unique(),
     activeRole: text('active_role', { enum: ROLES }).notNull(),
     expiresAt: tstz('expires_at').notNull(),
+    /** "Keep me signed in": renewals extend it. Otherwise it ends at the first expiry. */
+    remember: boolean('remember').notNull().default(true),
     replacedAt: tstz('replaced_at'),
     revokedAt: tstz('revoked_at'),
     userAgent: text('user_agent'),

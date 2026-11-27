@@ -78,6 +78,13 @@
       "when": 1795692499499,
       "tag": "0010_projects_employment",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795760370405,
+      "tag": "0011_session_remember",
+      "breakpoints": true
     }
   ]
 }

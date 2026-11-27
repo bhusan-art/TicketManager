@@ -16,7 +16,8 @@ type Status = 'loading' | 'signed-in' | 'signed-out';
 interface AuthState {
   status: Status;
   user: AuthUser | null;
-  signIn(email: string, password: string): Promise<void>;
+  /** `remember` keeps the sign-in for 30 days; otherwise it ends when the browser closes. */
+  signIn(email: string, password: string, remember?: boolean): Promise<void>;
   signOut(): Promise<void>;
   switchRole(role: Role): Promise<void>;
   /** Re-reads the user after a change (e.g. password set). */
@@ -64,8 +65,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       status,
       user,
-      async signIn(email, password) {
-        const session = await apiPost<SessionResponse>('/auth/login', { email, password });
+      async signIn(email, password, remember = false) {
+        const session = await apiPost<SessionResponse>('/auth/login', {
+          email,
+          password,
+          remember,
+        });
         restored.current = true;
         apply(session);
       },

@@ -13,11 +13,17 @@ export interface SessionMeta {
   ip?: string | null;
 }
 
+/**
+ * How long a sign-in lasts. A remembered one runs `days` from each renewal. Any other one ends
+ * `SHORT_SESSION_HOURS` after sign-in, however often it is renewed.
+ */
+export type SessionLength = { remember: true; days: number } | { remember: false; until: Date };
+
 export async function createSession(
   db: DbOrTx,
   userId: string,
   activeRole: Role,
-  days: number,
+  length: SessionLength,
   meta: SessionMeta,
   familyId: string = randomUUID(),
 ) {
@@ -28,8 +34,11 @@ export async function createSession(
       userId,
       familyId,
       activeRole,
+      remember: length.remember,
       tokenHash: hashToken(token),
-      expiresAt: sql`now() + make_interval(days => ${days})`,
+      expiresAt: length.remember
+        ? sql`now() + make_interval(days => ${length.days})`
+        : length.until,
       userAgent: meta.userAgent?.slice(0, 300) ?? null,
       ip: meta.ip ?? null,
     })
@@ -38,7 +47,14 @@ export async function createSession(
 }
 
 export type RotateResult =
-  | { ok: true; token: string; sessionId: string; userId: string; activeRole: Role }
+  | {
+      ok: true;
+      token: string;
+      sessionId: string;
+      userId: string;
+      activeRole: Role;
+      remember: boolean;
+    }
   | { ok: false; reason: 'unknown' | 'expired' | 'revoked' | 'reused' | 'race' };
 
 /**
@@ -72,11 +88,17 @@ export async function rotateSession(
       tx,
       current.userId,
       current.activeRole,
-      days,
+      current.remember ? { remember: true, days } : { remember: false, until: current.expiresAt },
       meta,
       current.familyId,
     );
-    return { ok: true, ...next, userId: current.userId, activeRole: current.activeRole };
+    return {
+      ok: true,
+      ...next,
+      userId: current.userId,
+      activeRole: current.activeRole,
+      remember: current.remember,
+    };
   });
 }
 

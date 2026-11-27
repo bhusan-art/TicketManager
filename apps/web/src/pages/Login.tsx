@@ -16,6 +16,7 @@ export function Login() {
   const [params] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(false);
   const [busy, setBusy] = useState(false);
   const googleError = params.get('error') as GoogleLoginError | null;
   const [error, setError] = useState<string | null>(
@@ -40,7 +41,7 @@ export function Login() {
     setBusy(true);
     setError(null);
     try {
-      await signIn(email, password);
+      await signIn(email, password, remember);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not reach the server. Try again.');
     } finally {
@@ -73,7 +74,15 @@ export function Login() {
             required
           />
         </Field>
-        <div className="form-row-end">
+        <div className="form-row-split">
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+            />
+            <span>Keep me signed in</span>
+          </label>
           <Link to="/forgot-password">Forgot password?</Link>
         </div>
         <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
@@ -83,7 +92,10 @@ export function Login() {
       {googleEnabled && (
         <>
           <div className="divider">or continue with</div>
-          <a className="btn btn-secondary btn-block" href="/api/v1/auth/google/start">
+          <a
+            className="btn btn-secondary btn-block"
+            href={`/api/v1/auth/google/start${remember ? '?remember=1' : ''}`}
+          >
             <GoogleMark /> Sign in with Google
           </a>
         </>
