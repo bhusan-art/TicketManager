@@ -65,6 +65,10 @@ doesn't, `docker compose logs <service>` (for example `docker compose logs web`)
 the certificate, `.env`, backups (and copies off the VM), restoring, updating, and logs. In
 short:
 
+- **Setup:** `./deploy/setup.sh` writes `.env` (asks for the domain, the first admin and the
+  mailbox; generates the secrets). `./deploy/preflight.sh` checks the server before and after
+  starting: Docker, settings, DNS, ports, the certificate, disk, backups and every service.
+
 - **HTTPS** turns on by itself when `deploy/certs/fullchain.pem` and `privkey.pem` exist; plain
   HTTP then redirects to `PUBLIC_URL`. `deploy/install-cert.sh` is a certbot hook, and
   `deploy/self-signed-cert.sh` makes a test certificate.

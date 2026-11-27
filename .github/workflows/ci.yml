@@ -103,3 +103,34 @@ jobs:
       - name: Stop
         if: always()
         run: docker compose down -v
+
+  server:
+    name: Server setup over HTTPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - name: Write .env with the setup script, and a certificate
+        run: |
+          echo "127.0.0.1 tm.test" | sudo tee -a /etc/hosts
+          TM_DOMAIN=tm.test TM_ADMIN_EMAIL=boss@tm.test ./deploy/setup.sh --yes
+          ./deploy/self-signed-cert.sh tm.test
+          ./deploy/preflight.sh
+      - name: Start on ports 80 and 443
+        run: docker compose up -d --build --wait --wait-timeout 300
+      - name: Pre-flight check of the running app
+        run: ./deploy/preflight.sh
+      - name: Sign in over HTTPS with the generated admin password
+        run: |
+          password=$(grep '^BOOTSTRAP_ADMIN_PASSWORD=' .env | cut -d= -f2-)
+          jq -n --arg p "$password" '{email:"boss@tm.test",password:$p}' > login.json
+          curl -fsS --cacert deploy/certs/fullchain.pem https://tm.test/api/v1/auth/login \
+            -H 'Content-Type: application/json' --data @login.json | grep -q '"accessToken"'
+          curl -fsSI --cacert deploy/certs/fullchain.pem https://tm.test/ | tr -d "\r" \
+            | grep -qi '^strict-transport-security:'
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Stop
+        if: always()
+        run: docker compose down -v
