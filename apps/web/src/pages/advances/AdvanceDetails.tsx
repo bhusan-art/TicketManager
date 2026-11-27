@@ -17,6 +17,7 @@ import {
 import {
   Banknote,
   Check,
+  FileDown,
   CornerUpLeft,
   Lock,
   Pencil,
@@ -37,7 +38,7 @@ import {
   formatDay,
   formatWhen,
 } from '../../components/VoucherStatus';
-import { ApiError, api, apiDelete, apiGet, idempotencyKey } from '../../lib/api';
+import { ApiError, api, apiDelete, apiGet, fetchFile, idempotencyKey } from '../../lib/api';
 
 type Send = (path: string, body: object, notice: string, idempotent?: boolean) => Promise<boolean>;
 
@@ -108,6 +109,15 @@ export function AdvanceDetails() {
   const money = a.status === 'open' || a.status === 'closed';
   const lastStep = [...a.events].reverse().find((e) => ['returned', 'rejected'].includes(e.type));
 
+  async function downloadPdf() {
+    setError(null);
+    try {
+      await fetchFile(`/advances/${a.id}/pdf`, 'save', `${a.number ?? 'draft-advance'}.pdf`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not download the PDF');
+    }
+  }
+
   async function remove() {
     setBusy(true);
     try {
@@ -136,6 +146,9 @@ export function AdvanceDetails() {
           </p>
         </div>
         <div className="actions">
+          <button className="btn btn-secondary" disabled={busy} onClick={() => void downloadPdf()}>
+            <FileDown size={16} aria-hidden /> Download PDF
+          </button>
           {a.can.edit && (
             <Link to={`/advances/${a.id}/edit`} className="btn btn-primary">
               <Pencil size={16} aria-hidden />{' '}

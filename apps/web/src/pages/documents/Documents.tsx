@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react';
 import { useUser } from '../../auth/AuthContext';
 import { ProjectSelect, useProjects } from '../../components/ProjectFilter';
 import { Field, FormError } from '../../components/forms';
+import { PaperFormButton } from '../../components/PaperFormButton';
 import { formatBytes, formatWhen } from '../../components/VoucherStatus';
 import { ApiError, apiGet, apiPost, fetchFile } from '../../lib/api';
 
@@ -182,6 +183,7 @@ export function Documents() {
             voucher. {SCOPE[user.activeRole] ?? ''} Drafts are never included.
           </p>
         </div>
+        <PaperFormButton />
       </div>
 
       <div className="card">

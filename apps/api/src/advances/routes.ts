@@ -34,6 +34,8 @@ import { advanceTransactions, advances, departments, settings, users } from '../
 import { AppError, conflict, forbidden, notFound } from '../http/errors.js';
 import { paginate } from '../http/pagination.js';
 import { parseBody, parseParams, parseQuery } from '../http/validate.js';
+import { contentDisposition } from '../http/upload.js';
+import { renderAdvancePdf } from '../documents/printables.js';
 import type { Services } from '../services.js';
 import { firstStage } from '../vouchers/routes.js';
 import { nextDocumentNumber } from '../vouchers/numbering.js';
@@ -297,6 +299,34 @@ export function advancesRouter({ db }: Services) {
       throw notFound('Advance');
     }
     res.json(a);
+  });
+
+  /** The advance on paper, for the file or a signature. Same access as viewing it. */
+  router.get('/:id/pdf', async (req, res) => {
+    const { id } = parseParams(idParams, req);
+    const a = await getAdvanceDetail(db, id, req.auth!);
+    if (
+      !a ||
+      !canViewAdvance(req.auth!, {
+        ...a,
+        employeeId: a.employee.id,
+        managerId: a.manager?.id ?? null,
+      })
+    ) {
+      throw notFound('Advance');
+    }
+    const pdf = await renderAdvancePdf(a);
+    res
+      .status(200)
+      .type('application/pdf')
+      .set({
+        'Content-Disposition': contentDisposition(
+          'attachment',
+          `${a.number ?? 'draft-advance'}.pdf`,
+        ),
+        'Cache-Control': 'private, no-store',
+      })
+      .end(pdf);
   });
 
   router.patch('/:id', async (req, res) => {
