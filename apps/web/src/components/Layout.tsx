@@ -7,6 +7,7 @@ import {
   Download,
   FolderKanban,
   FileArchive,
+  FilePen,
   History,
   HandCoins,
   LayoutDashboard,
@@ -87,6 +88,13 @@ const NAV: NavItem[] = [
     group: 'Accounts',
   },
   { to: '/payments', label: 'Payments', icon: Wallet, roles: ['accounts'], group: 'Accounts' },
+  {
+    to: '/paper-claims',
+    label: 'Paper claims',
+    icon: FilePen,
+    roles: ['accounts'],
+    group: 'Accounts',
+  },
   {
     to: '/reports',
     label: 'Reports',

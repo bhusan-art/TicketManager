@@ -5,6 +5,7 @@ import {
   MAX_ATTACHMENTS_PER_LINE,
   VOUCHER_STATUS_GROUPS,
   cancelVoucherSchema,
+  createVoucherInputSchema,
   createVoucherSchema,
   listVouchersQuerySchema,
   paginationQuerySchema,
@@ -24,13 +25,14 @@ import type { Tx } from '../db/client.js';
 import {
   advances,
   categories,
+  departments,
   projects,
   users,
   voucherAttachments,
   voucherLines,
   vouchers,
 } from '../db/schema.js';
-import { AppError, conflict, notFound } from '../http/errors.js';
+import { AppError, conflict, forbidden, notFound } from '../http/errors.js';
 import { paginate } from '../http/pagination.js';
 import {
   cleanFilename,
@@ -202,7 +204,15 @@ export function vouchersRouter({ db }: Services) {
   router.get('/', async (req, res) => {
     const page = parseQuery(paginationQuerySchema, req);
     const filters = parseQuery(listVouchersQuerySchema, req);
-    const where: SQL[] = [eq(vouchers.employeeId, req.auth!.userId)];
+    // Accounts can list the paper claims they typed in for others instead of their own.
+    if (filters.entered && req.auth!.activeRole !== 'accounts') {
+      throw forbidden('Switch to the Accounts role to see paper claims');
+    }
+    const where: SQL[] = [
+      filters.entered
+        ? eq(vouchers.enteredById, req.auth!.userId)
+        : eq(vouchers.employeeId, req.auth!.userId),
+    ];
     if (filters.status) {
       where.push(inArray(vouchers.approvalStatus, [...VOUCHER_STATUS_GROUPS[filters.status]]));
     }
@@ -250,6 +260,37 @@ export function vouchersRouter({ db }: Services) {
     res.json(counts);
   });
 
+  /** Accounts: people to type a paper claim in for (active, not themselves). */
+  router.get('/claimants', async (req, res) => {
+    if (req.auth!.activeRole !== 'accounts') {
+      throw forbidden('Switch to the Accounts role to enter paper claims');
+    }
+    const { search } = parseQuery(z.object({ search: z.string().trim().max(100).optional() }), req);
+    const where: (SQL | undefined)[] = [
+      eq(users.status, 'active'),
+      sql`${users.id} <> ${req.auth!.userId}`,
+    ];
+    if (search) {
+      const term = `%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+      where.push(
+        or(ilike(users.name, term), ilike(users.employeeCode, term), ilike(users.email, term)),
+      );
+    }
+    const data = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        employeeCode: users.employeeCode,
+        department: departments.name,
+      })
+      .from(users)
+      .leftJoin(departments, eq(departments.id, users.departmentId))
+      .where(and(...where))
+      .orderBy(users.name)
+      .limit(20);
+    res.json({ data });
+  });
+
   router.get('/:id', async (req, res) => {
     const { id } = parseParams(idParams, req);
     res.json(await detail(req, id));
@@ -258,15 +299,32 @@ export function vouchersRouter({ db }: Services) {
   // ---- Drafts ----
 
   router.post('/', async (req, res) => {
-    const input = parseBody(createVoucherSchema, req);
+    const { employeeId: forId, ...input } = parseBody(createVoucherInputSchema, req);
+    const paper = !!forId && forId !== req.auth!.userId;
+    if (paper) {
+      if (req.auth!.activeRole !== 'accounts') {
+        throw forbidden('Only Accounts can enter a claim for someone else');
+      }
+      const [who] = await db
+        .select({ status: users.status })
+        .from(users)
+        .where(eq(users.id, forId));
+      if (!who || who.status !== 'active') {
+        throw invalid('Choose an active employee', [
+          { path: 'employeeId', message: 'This person is not an active user' },
+        ]);
+      }
+    }
+    const employeeId = paper ? forId : req.auth!.userId;
     const id = await db.transaction(async (tx) => {
       await assertCategories(tx, input.lines, new Set());
-      await assertAdvance(tx, input.advanceId, req.auth!.userId);
+      await assertAdvance(tx, input.advanceId, employeeId);
       await assertProject(tx, input.projectId);
       const [voucher] = await tx
         .insert(vouchers)
         .values({
-          employeeId: req.auth!.userId,
+          employeeId,
+          enteredById: paper ? req.auth!.userId : null,
           advanceId: input.advanceId ?? null,
           projectId: input.projectId ?? null,
           purpose: input.purpose ?? null,
@@ -284,7 +342,11 @@ export function vouchersRouter({ db }: Services) {
         entityId: voucher!.id,
         actorId: req.auth!.userId,
         actorRole: req.auth!.activeRole,
-        after: { purpose: input.purpose ?? null, lines: input.lines.length },
+        after: {
+          purpose: input.purpose ?? null,
+          lines: input.lines.length,
+          ...(paper ? { paperClaimFor: employeeId } : {}),
+        },
         req,
       });
       await recordEvent(tx, {

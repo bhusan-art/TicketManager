@@ -18,6 +18,7 @@ import {
 import { FileText, Paperclip, Plus, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { useUser } from '../../auth/AuthContext';
 import { Field, FormError } from '../../components/forms';
 import { TakePhoto } from '../../components/TakePhoto';
 import { useTouch } from '../../lib/media';
@@ -138,8 +139,20 @@ function toInput(lines: LineForm[]) {
 const stepFor = (path: string): Step =>
   path.endsWith('.proof') || path.endsWith('.missingProofReason') ? 'proofs' : 'details';
 
-export function VoucherForm() {
+interface Claimant {
+  id: string;
+  name: string;
+  employeeCode: string | null;
+  department: string | null;
+}
+
+/**
+ * Create or edit a claim. With `paper`, Accounts types in a claim handed in on paper for an
+ * employee, who then follows it in the app like any other claim.
+ */
+export function VoucherForm({ paper = false }: { paper?: boolean } = {}) {
   const { id } = useParams();
+  const user = useUser();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const step = (STEPS.find((s) => s.key === params.get('step'))?.key ?? 'details') as Step;
@@ -157,6 +170,30 @@ export function VoucherForm() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [confirmed, setConfirmed] = useState(false);
+  const [claimantId, setClaimantId] = useState('');
+  const [claimantSearch, setClaimantSearch] = useState('');
+  const [claimants, setClaimants] = useState<Claimant[]>([]);
+  // Someone else's claim (a paper claim): their advances aren't the caller's to choose.
+  const forSomeoneElse = paper || (!!voucher && voucher.employee.id !== user.id);
+  const advances = forSomeoneElse ? [] : linkable;
+
+  useEffect(() => {
+    if (!paper || id) return;
+    let active = true;
+    const timer = setTimeout(() => {
+      const q = claimantSearch.trim();
+      apiGet<{ data: Claimant[] }>(
+        `/vouchers/claimants${q ? `?search=${encodeURIComponent(q)}` : ''}`,
+      ).then(
+        (r) => active && setClaimants(r.data),
+        () => {},
+      );
+    }, 200);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [paper, id, claimantSearch]);
 
   useEffect(() => {
     apiGet<{ data: Category[] }>('/categories').then(
@@ -167,11 +204,13 @@ export function VoucherForm() {
       (r) => setProjects(r.data),
       () => {},
     );
-    apiGet<{ data: LinkableAdvance[] }>('/advances/linkable').then(
-      (r) => setLinkable(r.data),
-      () => {},
-    );
-  }, []);
+    if (!paper) {
+      apiGet<{ data: LinkableAdvance[] }>('/advances/linkable').then(
+        (r) => setLinkable(r.data),
+        () => {},
+      );
+    }
+  }, [paper]);
 
   function load(v: VoucherDetail) {
     setVoucher(v);
@@ -231,6 +270,11 @@ export function VoucherForm() {
   async function save(): Promise<VoucherDetail | null> {
     setError(null);
     setFieldErrors({});
+    if (paper && !voucher && !claimantId) {
+      setFieldErrors({ employeeId: 'Choose whose claim this is' });
+      setError('Choose the employee this paper claim belongs to.');
+      return null;
+    }
     const { lines: input, errors } = toInput(lines);
     if (Object.keys(errors).length) {
       setFieldErrors(errors);
@@ -248,6 +292,7 @@ export function VoucherForm() {
             lines: input,
           })
         : await apiPost<VoucherDetail>('/vouchers', {
+            ...(paper ? { employeeId: claimantId } : {}),
             purpose,
             advanceId: advanceId || null,
             projectId: projectId || null,
@@ -386,12 +431,21 @@ export function VoucherForm() {
 
   return (
     <section>
-      <Link to={voucher ? `/expenses/${voucher.id}` : '/expenses'} className="back-link">
-        ← {voucher ? 'Back to voucher' : 'My expenses'}
+      <Link
+        to={voucher ? `/expenses/${voucher.id}` : paper ? '/paper-claims' : '/expenses'}
+        className="back-link"
+      >
+        ← {voucher ? 'Back to voucher' : paper ? 'Paper claims' : 'My expenses'}
       </Link>
       <div className="page-head">
         <div>
-          <h1>{voucher ? 'Edit expense' : 'Submit expense'}</h1>
+          <h1>
+            {forSomeoneElse
+              ? `Paper claim${voucher ? ` for ${voucher.employee.name}` : ''}`
+              : voucher
+                ? 'Edit expense'
+                : 'Submit expense'}
+          </h1>
           <p className="muted">
             {voucher?.number ?? 'New voucher'} · Total {formatRupees(total)}
           </p>
@@ -418,6 +472,31 @@ export function VoucherForm() {
       {step === 'details' && (
         <div className="voucher-form">
           <div className="card wide">
+            {paper && !voucher && (
+              <div className="claimant-pick">
+                <Field label="Employee" error={err('employeeId')} hint="Whose paper claim this is">
+                  <input
+                    type="search"
+                    placeholder="Search by name or employee code"
+                    aria-label="Find employee"
+                    value={claimantSearch}
+                    onChange={(e) => setClaimantSearch(e.target.value)}
+                  />
+                </Field>
+                <Field label="Claim for">
+                  <select value={claimantId} onChange={(e) => setClaimantId(e.target.value)}>
+                    <option value="">Choose…</option>
+                    {claimants.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                        {c.employeeCode ? ` (${c.employeeCode})` : ''}
+                        {c.department ? ` · ${c.department}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+            )}
             <Field label="Purpose" error={err('purpose')} hint="e.g. Client visit to Bengaluru">
               <input
                 value={purpose}
@@ -447,7 +526,7 @@ export function VoucherForm() {
                 </select>
               </Field>
             )}
-            {(linkable.length > 0 || advanceId) && (
+            {(advances.length > 0 || advanceId) && (
               <Field
                 label="Settle against an advance"
                 error={err('advanceId')}
@@ -455,12 +534,12 @@ export function VoucherForm() {
               >
                 <select value={advanceId} onChange={(e) => setAdvanceId(e.target.value)}>
                   <option value="">No, pay me for this claim</option>
-                  {linkable.map((a) => (
+                  {advances.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.number} · {a.purpose} ({formatRupees(a.disbursedPaise)})
                     </option>
                   ))}
-                  {advanceId && !linkable.some((a) => a.id === advanceId) && (
+                  {advanceId && !advances.some((a) => a.id === advanceId) && (
                     <option value={advanceId}>
                       {voucher?.advance?.number ?? 'Advance'} (no longer open)
                     </option>

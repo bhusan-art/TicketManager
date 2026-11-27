@@ -177,6 +177,12 @@ export const createVoucherSchema = z.object({
   projectId: z.uuid().nullable().optional(),
   lines: z.array(voucherLineInputSchema).max(50, 'A voucher can have at most 50 lines').default([]),
 });
+
+/** Accounts can type in a paper claim for an employee. */
+export const createVoucherInputSchema = createVoucherSchema.extend({
+  /** Accounts only: the employee whose paper claim this is. */
+  employeeId: z.uuid().optional(),
+});
 export type CreateVoucherInput = z.input<typeof createVoucherSchema>;
 
 /** Updates replace the voucher's lines. `version` must match, or the update is rejected. */
@@ -197,6 +203,11 @@ export const listVouchersQuerySchema = z.object({
     .optional(),
   /** Matches voucher number or purpose. */
   search: z.string().trim().max(100).optional(),
+  /** Accounts: the paper claims they typed in, instead of their own claims. */
+  entered: z
+    .enum(['true', 'false'])
+    .transform((v) => v === 'true')
+    .optional(),
 });
 
 export const ATTACHMENT_TYPES = {
@@ -281,6 +292,8 @@ export interface VoucherDetail {
   /** Approved but not yet paid. */
   outstandingPaise: number;
   paidAt: string | null;
+  /** Accounts typed this in from a paper claim. */
+  enteredBy: Ref | null;
   /** What the caller may do now. */
   can: VoucherPermissions;
 }
@@ -292,6 +305,8 @@ export interface VoucherSummary {
   approvalStatus: ApprovalStatus;
   paymentStatus: PaymentStatus;
   totalPaise: number;
+  /** The claimant's name (lists show it where the claim isn't the caller's own). */
+  employeeName?: string;
   lineCount: number;
   /** Earliest expense date on the voucher. */
   expenseDate: string | null;

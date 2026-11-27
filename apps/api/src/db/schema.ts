@@ -279,6 +279,8 @@ export const vouchers = pgTable(
     advanceId: uuid('advance_id').references((): AnyPgColumn => advances.id),
     cancelledAt: tstz('cancelled_at'),
     cancelReason: text('cancel_reason'),
+    /** The Accounts user who typed this in from a paper claim; null when the employee did. */
+    enteredById: uuid('entered_by_id').references((): AnyPgColumn => users.id),
     /** Optimistic concurrency: every change bumps it, and writers must send the version they read. */
     version: integer('version').notNull().default(1),
     createdAt: createdAt(),

@@ -24,13 +24,14 @@ const BACK: Record<string, { to: string; label: string }> = {
   approvals: { to: '/approvals', label: 'Approvals' },
   verification: { to: '/verification', label: 'Verification' },
   payments: { to: '/payments', label: 'Payments' },
+  paper: { to: '/paper-claims', label: 'Paper claims' },
 };
 
 export function VoucherDetails() {
   const user = useUser();
   const { id } = useParams();
   const section = useLocation().pathname.split('/')[1] ?? 'expenses';
-  const back = BACK[section] ?? BACK.expenses!;
+  const opened = BACK[section] ?? BACK.expenses!;
   const startedReview = useRef(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -44,6 +45,11 @@ export function VoucherDetails() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [reason, setReason] = useState('');
   const [reasonError, setReasonError] = useState<string | undefined>();
+  // Accounts opening a paper claim they typed in goes back to their paper claims list.
+  const back =
+    section === 'expenses' && voucher?.enteredBy?.id === user.id && voucher.employee.id !== user.id
+      ? BACK.paper!
+      : opened;
 
   useEffect(() => {
     let active = true;
@@ -170,7 +176,7 @@ export function VoucherDetails() {
             <VoucherStatus status={v.approvalStatus} reviewStarted={!!v.accountsReviewStartedAt} />
           </h1>
           <p className="muted">
-            {section !== 'expenses' ? `${v.employee.name} · ` : ''}
+            {section !== 'expenses' || v.employee.id !== user.id ? `${v.employee.name} · ` : ''}
             {v.purpose ?? 'No purpose yet'} · {formatRupees(v.totalPaise)}
             {v.waitingOn && ` · Waiting on ${v.waitingOn}`}
           </p>
@@ -214,6 +220,17 @@ export function VoucherDetails() {
       )}
       <FormError message={error} />
 
+      {v.enteredBy && (
+        <div className="card wide callout">
+          <strong>Paper claim</strong>
+          <span className="muted small">
+            {v.enteredBy.name} typed this in from {v.employee.name}&apos;s paper form.
+            {v.approvalStatus === 'draft' && v.can.submit
+              ? ' Attach the scanned form and bills, then submit it.'
+              : ''}
+          </span>
+        </div>
+      )}
       {v.approvalStatus === 'returned' && lastStep?.type === 'returned' && (
         <div className="card wide callout warn">
           <strong>{lastStep.actor?.name ?? 'An approver'} returned this voucher for changes</strong>

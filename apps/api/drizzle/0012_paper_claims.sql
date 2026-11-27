@@ -1,0 +1,2 @@
+ALTER TABLE "vouchers" ADD COLUMN "entered_by_id" uuid;--> statement-breakpoint
+ALTER TABLE "vouchers" ADD CONSTRAINT "vouchers_entered_by_id_users_id_fk" FOREIGN KEY ("entered_by_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;
