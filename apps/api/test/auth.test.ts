@@ -43,6 +43,58 @@ describeWithDb('sign-in and sessions', () => {
     expect(cookie).toMatch(/Path=\/api\/v1\/auth/);
   });
 
+  it('ends a sign-in without "Keep me signed in" with the browser, and within 12 hours', async () => {
+    const user = await makeUser(t.db);
+    const res = await request(ctx.app)
+      .post('/api/v1/auth/login')
+      .send({ email: user.email, password: TEST_PASSWORD });
+    const cookie = String(res.headers['set-cookie']);
+    expect(cookie).not.toMatch(/Max-Age|Expires/i); // a browser-session cookie
+    const [first] = await t.db.select().from(sessions).where(eq(sessions.userId, user.id));
+    expect(first!.remember).toBe(false);
+    const hours = (first!.expiresAt.getTime() - Date.now()) / 3_600_000;
+    expect(hours).toBeGreaterThan(11.9);
+    expect(hours).toBeLessThanOrEqual(12);
+
+    // Renewing keeps the original end time and the browser-session cookie.
+    const refreshed = await request(ctx.app)
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', cookie.split(';')[0]!);
+    expect(refreshed.status).toBe(200);
+    expect(String(refreshed.headers['set-cookie'])).not.toMatch(/Max-Age|Expires/i);
+    const rows = await t.db.select().from(sessions).where(eq(sessions.userId, user.id));
+    const next = rows.find((r) => r.id !== first!.id)!;
+    expect(next.remember).toBe(false);
+    expect(next.expiresAt.getTime()).toBe(first!.expiresAt.getTime());
+
+    // Once that time passes, the sign-in is over.
+    await t.db
+      .update(sessions)
+      .set({ expiresAt: sql`now() - interval '1 minute'` })
+      .where(eq(sessions.id, next.id));
+    const late = await request(ctx.app)
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', String(refreshed.headers['set-cookie']).split(';')[0]!);
+    expect(late.status).toBe(401);
+  });
+
+  it('keeps a sign-in for 30 days with "Keep me signed in", renewed on each use', async () => {
+    const user = await makeUser(t.db);
+    const res = await request(ctx.app)
+      .post('/api/v1/auth/login')
+      .send({ email: user.email, password: TEST_PASSWORD, remember: true });
+    const cookie = String(res.headers['set-cookie']);
+    expect(cookie).toMatch(/Max-Age=2592000/);
+    const refreshed = await request(ctx.app)
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', cookie.split(';')[0]!);
+    expect(String(refreshed.headers['set-cookie'])).toMatch(/Max-Age=2592000/);
+    const rows = await t.db.select().from(sessions).where(eq(sessions.userId, user.id));
+    expect(rows.every((r) => r.remember)).toBe(true);
+    const days = (Math.max(...rows.map((r) => r.expiresAt.getTime())) - Date.now()) / 86_400_000;
+    expect(days).toBeGreaterThan(29.9);
+  });
+
   it('gives the same answer for a wrong password and an unknown email', async () => {
     const user = await makeUser(t.db);
     const wrong = await request(ctx.app)
@@ -264,9 +316,9 @@ describeWithDb('Google sign-in', () => {
     ctx = testServices(t.db, { google: fakeGoogle(() => identity) });
   });
 
-  async function googleFlow() {
+  async function googleFlow(query = '') {
     const agent = request.agent(ctx.app);
-    const start = await agent.get('/api/v1/auth/google/start');
+    const start = await agent.get(`/api/v1/auth/google/start${query}`);
     expect(start.status).toBe(302);
     const state = new URL(start.headers.location!).searchParams.get('state');
     return agent.get(`/api/v1/auth/google/callback?code=abc&state=${state}`);
@@ -286,6 +338,15 @@ describeWithDb('Google sign-in', () => {
     expect(String(res.headers['set-cookie'])).toContain('tm_refresh=');
     const [row] = await t.db.select().from(users).where(eq(users.id, user.id));
     expect(row!.googleSub).toBe('google-123');
+  });
+
+  it('carries "Keep me signed in" through Google sign-in', async () => {
+    await makeUser(t.db, { email: 'meera@company.com', password: null });
+    identity = { sub: 'google-456', email: 'meera@company.com', emailVerified: true };
+    const short = await googleFlow();
+    expect(String(short.headers['set-cookie'])).not.toMatch(/tm_refresh=[^,]*Max-Age/);
+    const long = await googleFlow('?remember=1');
+    expect(String(long.headers['set-cookie'])).toMatch(/tm_refresh=[^,]*Max-Age=2592000/);
   });
 
   it('turns away a Google account nobody registered', async () => {

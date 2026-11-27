@@ -163,9 +163,13 @@ Every endpoint in later phases follows these.
   letter, a number and a symbol. Five wrong passwords lock the account for 15 minutes.
   "Forgot password" emails a reset link valid for 1 hour.
 - **Sessions.** A short-lived access token (15 minutes, kept in memory by the web app) plus a
-  refresh token in an `httpOnly`, `SameSite=Strict` cookie (30 days). Refresh tokens rotate on every
+  refresh token in an `httpOnly`, `SameSite=Strict` cookie. Refresh tokens rotate on every
   use, and reusing an old one signs out that sign-in everywhere. Deactivating a user or resetting a
   password signs them out at once.
+- **Keep me signed in.** Unticked (the default), the sign-in ends when the browser closes and after
+  12 hours at most. Ticked, it lasts 30 days from the last visit (`REFRESH_TOKEN_DAYS`). Sessions
+  live in the database, so restarting or updating the containers never signs anyone out; **Sign
+  out** does.
 - **Roles:** Employee, Manager, Accounts, Director and Admin. A user can hold several and picks the
   active one with the **Viewing as** switcher; the API checks the _active_ role
   (`requireRole('admin')`), so an admin browsing as Employee can't use admin endpoints.

@@ -28,7 +28,12 @@ export const emailSchema = z
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, 'Enter your password').max(128),
+  /** Ticked "Keep me signed in": a 30-day sign-in. Otherwise it ends when the browser closes. */
+  remember: z.boolean().optional(),
 });
+
+/** Longest a sign-in without "Keep me signed in" lasts, even with the browser left open. */
+export const SHORT_SESSION_HOURS = 12;
 
 export const forgotPasswordSchema = z.object({ email: emailSchema });
 

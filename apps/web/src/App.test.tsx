@@ -31,12 +31,15 @@ describe('signing in', () => {
     renderApp('/');
     await userEvent.type(await screen.findByLabelText('Email address'), 'rahul@company.com');
     await userEvent.type(screen.getByLabelText('Password'), 'Expense#2026');
+    expect(screen.getByLabelText('Keep me signed in')).not.toBeChecked();
+    await userEvent.click(screen.getByLabelText('Keep me signed in'));
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
     expect(await screen.findByText(/, Rahul$/)).toBeInTheDocument();
     expect(calls.find((c) => c.key === 'POST /auth/login')!.body).toEqual({
       email: 'rahul@company.com',
       password: 'Expense#2026',
+      remember: true,
     });
   });
 
