@@ -28,6 +28,7 @@ import {
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { useUser } from '../../auth/AuthContext';
+import { ClaimChat } from '../../components/ClaimChat';
 import { FollowUp } from '../../components/FollowUp';
 import { WhatsAppSend } from '../../components/WhatsAppSend';
 import { Field, FormError } from '../../components/forms';
@@ -264,6 +265,8 @@ export function AdvanceDetails() {
         </div>
         <AdvanceTimeline events={a.events} />
       </div>
+
+      {a.submittedAt && <ClaimChat key={a.id} path={`/advances/${a.id}`} label="advance" />}
     </section>
   );
 }
