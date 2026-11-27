@@ -354,13 +354,23 @@ describeWithDb('vouchers', () => {
       expect(aRes.body.approvalStatus).toBe('pending_director');
     });
 
-    it('asks employees without a manager to get one first', async () => {
+    it('sends a regular employee with no manager straight to Accounts', async () => {
       const loner = await makeUser(t.db);
       const lonerAuth = bearer((await signIn(ctx.app, loner.email)).token);
       const v = await ready([goodLine()], lonerAuth);
       const res = await api(lonerAuth).post(`/vouchers/${v.id}/submit`, { version: v.version });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ approvalStatus: 'pending_accounts', manager: null });
+      expect(res.body.waitingOn).toBe('Accounts');
+    });
+
+    it('asks a contractual employee without a manager to get one first', async () => {
+      const temp = await makeUser(t.db, { employmentType: 'contractual' });
+      const tempAuth = bearer((await signIn(ctx.app, temp.email)).token);
+      const v = await ready([goodLine()], tempAuth);
+      const res = await api(tempAuth).post(`/vouchers/${v.id}/submit`, { version: v.version });
       expect(res.status).toBe(400);
-      expect(res.body.error.message).toContain('reporting manager');
+      expect(res.body.error.message).toContain('Contractual employees need a reporting manager');
     });
 
     it('replays a retried submit with the same Idempotency-Key', async () => {

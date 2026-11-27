@@ -31,6 +31,7 @@ export const voucher = (over: Partial<VoucherDetail> = {}): VoucherDetail => ({
     designation: null,
   },
   department: { id: 'd1', name: 'Engineering' },
+  project: null,
   manager: null,
   submittedAt: null,
   cancelledAt: null,

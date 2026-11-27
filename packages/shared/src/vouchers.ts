@@ -173,6 +173,8 @@ export const createVoucherSchema = z.object({
   purpose: optionalText(200),
   /** An open advance of the employee's that this claim settles. */
   advanceId: z.uuid().nullable().optional(),
+  /** The company project the expense was for, if any. */
+  projectId: z.uuid().nullable().optional(),
   lines: z.array(voucherLineInputSchema).max(50, 'A voucher can have at most 50 lines').default([]),
 });
 export type CreateVoucherInput = z.input<typeof createVoucherSchema>;
@@ -254,6 +256,8 @@ export interface VoucherDetail {
   version: number;
   employee: VoucherEmployee;
   department: Ref | null;
+  /** The project the expense was for. */
+  project: Ref | null;
   /** Reporting manager at the time of submission. */
   manager: Ref | null;
   submittedAt: string | null;
@@ -292,6 +296,7 @@ export interface VoucherSummary {
   /** Earliest expense date on the voucher. */
   expenseDate: string | null;
   categories: string[];
+  project: Ref | null;
   submittedAt: string | null;
   createdAt: string;
   updatedAt: string;

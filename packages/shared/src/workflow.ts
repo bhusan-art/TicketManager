@@ -141,6 +141,8 @@ export type ApprovalView = (typeof APPROVAL_VIEWS)[number];
 export const approvalQueueQuerySchema = z.object({
   view: z.enum(APPROVAL_VIEWS).default('pending'),
   search: z.string().trim().max(100).optional(),
+  /** A project's id, or "none" for vouchers without a project. */
+  projectId: z.union([z.uuid(), z.literal('none')]).optional(),
 });
 
 export interface ApprovalQueueItem extends VoucherSummary {

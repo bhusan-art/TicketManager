@@ -112,7 +112,7 @@ export async function getAccountsDashboard(db: Db, now = new Date()): Promise<Ac
   };
 }
 
-type Filter = { from?: string; to?: string; departmentId?: string };
+type Filter = { from?: string; to?: string; departmentId?: string; projectId?: string };
 
 /** Submitted, not cancelled, inside the date range (IST submission date). */
 function reportWhere(f: Filter) {
@@ -120,6 +120,8 @@ function reportWhere(f: Filter) {
   if (f.from) parts.push(sql`(v.submitted_at at time zone ${TZ})::date >= ${f.from}::date`);
   if (f.to) parts.push(sql`(v.submitted_at at time zone ${TZ})::date <= ${f.to}::date`);
   if (f.departmentId) parts.push(sql`v.department_id = ${f.departmentId}`);
+  if (f.projectId === 'none') parts.push(sql`v.project_id is null`);
+  else if (f.projectId) parts.push(sql`v.project_id = ${f.projectId}`);
   return sql.join(parts, sql` and `);
 }
 
@@ -169,6 +171,14 @@ export async function getReport(db: Db, f: Filter): Promise<ReportResponse> {
       left join departments d on d.id = v.department_id
       where ${where} group by u.id, u.name, u.employee_code, d.name order by claimed desc, u.name`,
   );
+  const byProject = await rows<
+    MoneyRow & { id: string | null; name: string | null; code: string | null; employees: string }
+  >(
+    db,
+    sql`select p.id, p.name, p.code, count(distinct v.employee_id) as employees, ${MONEY}
+      from vouchers v left join projects p on p.id = v.project_id
+      where ${where} group by p.id, p.name, p.code order by claimed desc, p.name`,
+  );
   const byCategory = await rows<{
     id: string | null;
     name: string | null;
@@ -188,6 +198,12 @@ export async function getReport(db: Db, f: Filter): Promise<ReportResponse> {
   return {
     totals: toRow(totals!),
     byDepartment: byDepartment.map((r) => ({ key: ref(r.id, r.name), ...toRow(r) })),
+    byProject: byProject.map((r) => ({
+      key: ref(r.id, r.name),
+      code: r.code,
+      employees: n(r.employees),
+      ...toRow(r),
+    })),
     byEmployee: byEmployee.map((r) => ({
       key: { id: r.id, name: r.name },
       employeeCode: r.code,
@@ -205,7 +221,7 @@ export async function getReport(db: Db, f: Filter): Promise<ReportResponse> {
 
 export async function getLiability(
   db: Db,
-  f: { departmentId?: string },
+  f: { departmentId?: string; projectId?: string },
   now = new Date(),
 ): Promise<LiabilityRow[]> {
   const today = todayIso(now);
@@ -233,6 +249,7 @@ export async function getLiability(
       left join departments d on d.id = v.department_id
       where v.approval_status in ${FINAL} and v.advance_id is null and v.paid_paise < v.approved_total_paise
       ${f.departmentId ? sql`and v.department_id = ${f.departmentId}` : sql``}
+      ${f.projectId === 'none' ? sql`and v.project_id is null` : f.projectId ? sql`and v.project_id = ${f.projectId}` : sql``}
       order by v.decided_at asc nulls first, v.id`,
   );
   return list.map((r) => ({
@@ -271,8 +288,8 @@ export function reportsRouter({ db }: Services) {
     res.json(await getReport(db, parseQuery(reportQuerySchema, req)));
   });
   router.get('/liability', async (req, res) => {
-    const { departmentId } = parseQuery(reportQuerySchema, req);
-    res.json({ data: await getLiability(db, { departmentId }) });
+    const { departmentId, projectId } = parseQuery(reportQuerySchema, req);
+    res.json({ data: await getLiability(db, { departmentId, projectId }) });
   });
   /** For the department filter. */
   router.get('/departments', async (_req, res) => {

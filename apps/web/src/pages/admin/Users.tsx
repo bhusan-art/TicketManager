@@ -129,11 +129,24 @@ export function Users() {
               <tr key={u.id}>
                 <td>
                   <Link to={`/admin/users/${u.id}`}>{u.name}</Link>
-                  {u.employeeCode && <div className="muted small">{u.employeeCode}</div>}
+                  {(u.employeeCode || u.employmentType === 'contractual') && (
+                    <div className="muted small">
+                      {[u.employeeCode, u.employmentType === 'contractual' && 'Contractual']
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </div>
+                  )}
                 </td>
                 <td>{u.email}</td>
                 <td>{u.department?.name ?? '—'}</td>
-                <td>{u.manager?.name ?? '—'}</td>
+                <td>
+                  {u.manager?.name ??
+                    (u.employmentType === 'contractual' ? (
+                      <span className="error-text">Needed</span>
+                    ) : (
+                      <span className="muted">None (to Accounts)</span>
+                    ))}
+                </td>
                 <td>
                   <RoleChips roles={u.roles} />
                 </td>

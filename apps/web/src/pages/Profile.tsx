@@ -1,4 +1,9 @@
-import { ROLE_LABELS, formatWhatsApp, type AuthUser } from '@ticketmanager/shared';
+import {
+  EMPLOYMENT_TYPE_LABELS,
+  ROLE_LABELS,
+  formatWhatsApp,
+  type AuthUser,
+} from '@ticketmanager/shared';
 import { useState, type FormEvent } from 'react';
 import { useAuth, useUser } from '../auth/AuthContext';
 import { Field, FormError, PasswordChecklist, passwordOk } from '../components/forms';
@@ -12,7 +17,12 @@ export function Profile() {
     ['Employee ID', user.employeeCode ?? '—'],
     ['Department', user.department?.name ?? '—'],
     ['Designation', user.designation ?? '—'],
-    ['Reporting manager', user.manager?.name ?? '—'],
+    ['Employment', EMPLOYMENT_TYPE_LABELS[user.employmentType]],
+    [
+      'Reporting manager',
+      user.manager?.name ??
+        (user.employmentType === 'regular' ? 'None: claims go to Accounts' : '—'),
+    ],
     ['WhatsApp', user.whatsappNumber ? formatWhatsApp(user.whatsappNumber) : '—'],
     ['Roles', user.roles.map((r) => ROLE_LABELS[r]).join(', ')],
     ['Google sign-in', user.googleLinked ? 'Linked' : 'Not linked'],

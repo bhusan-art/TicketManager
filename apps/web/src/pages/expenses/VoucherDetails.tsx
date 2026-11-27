@@ -282,6 +282,8 @@ export function VoucherDetails() {
             </dd>
             <dt>Department</dt>
             <dd>{v.department?.name ?? '—'}</dd>
+            <dt>Project</dt>
+            <dd>{v.project?.name ?? 'No project'}</dd>
             <dt>Reporting manager</dt>
             <dd>{v.manager?.name ?? '—'}</dd>
             <dt>Waiting on</dt>

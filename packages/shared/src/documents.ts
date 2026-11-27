@@ -40,6 +40,8 @@ export const exportFiltersSchema = z
       .optional(),
     paymentStatus: z.enum(PAYMENT_STATUSES).optional(),
     departmentId: z.uuid().optional(),
+    /** A project's id, or "none" for vouchers without a project. */
+    projectId: z.union([z.uuid(), z.literal('none')]).optional(),
     employeeId: z.uuid().optional(),
     search: z.string().trim().max(100).optional(),
   })

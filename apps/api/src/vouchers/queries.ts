@@ -1,4 +1,5 @@
 import {
+  projectLabel,
   type VoucherAttachment,
   type VoucherDetail,
   type VoucherLine,
@@ -16,6 +17,7 @@ import {
   categories,
   departments,
   files,
+  projects,
   users,
   voucherAttachments,
   voucherLines,
@@ -99,12 +101,15 @@ export async function getVoucherDetail(
       homeDepartmentName: homeDepartments.name,
       managerId: voucherManagers.id,
       managerName: voucherManagers.name,
+      projectName: projects.name,
+      projectCode: projects.code,
     })
     .from(vouchers)
     .innerJoin(employees, eq(employees.id, vouchers.employeeId))
     .leftJoin(departments, eq(departments.id, vouchers.departmentId))
     .leftJoin(homeDepartments, eq(homeDepartments.id, employees.departmentId))
     .leftJoin(voucherManagers, eq(voucherManagers.id, vouchers.managerId))
+    .leftJoin(projects, eq(projects.id, vouchers.projectId))
     .where(eq(vouchers.id, id));
   if (!row) return undefined;
   const v = row.voucher;
@@ -128,6 +133,10 @@ export async function getVoucherDetail(
       designation: row.employee.designation,
     },
     department,
+    project:
+      v.projectId && row.projectName
+        ? { id: v.projectId, name: projectLabel({ name: row.projectName, code: row.projectCode }) }
+        : null,
     manager: ref(row.managerId, row.managerName),
     submittedAt: v.submittedAt?.toISOString() ?? null,
     cancelledAt: v.cancelledAt?.toISOString() ?? null,
@@ -174,6 +183,9 @@ export const voucherSummaryColumns = {
   categories: sql<string[]>`(select coalesce(array_agg(distinct c.name order by c.name), '{}')
     from voucher_lines l join categories c on c.id = l.category_id
     where l.voucher_id = "vouchers"."id")`,
+  projectId: vouchers.projectId,
+  projectName: sql<string | null>`(select case when p.code is null then p.name
+    else p.code || ' · ' || p.name end from projects p where p.id = "vouchers"."project_id")`,
 };
 
 export function selectVoucherSummaries(db: DbOrTx) {
@@ -182,11 +194,16 @@ export function selectVoucherSummaries(db: DbOrTx) {
 
 type SummaryRow = Awaited<ReturnType<ReturnType<typeof selectVoucherSummaries>['execute']>>[number];
 
-export function toVoucherSummary(row: SummaryRow): VoucherSummary {
+export function toVoucherSummary({ projectId, projectName, ...row }: SummaryRow): VoucherSummary {
   return {
     ...row,
+    project: projectId && projectName ? { id: projectId, name: projectName } : null,
     submittedAt: row.submittedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
 }
+
+/** Filter by a project's id, or "none" for vouchers booked to no project. */
+export const projectCondition = (projectId: string) =>
+  projectId === 'none' ? sql`${vouchers.projectId} is null` : eq(vouchers.projectId, projectId);

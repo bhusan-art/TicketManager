@@ -90,6 +90,8 @@ export type PaymentQueueView = (typeof PAYMENT_QUEUE_VIEWS)[number];
 export const paymentQueueQuerySchema = z.object({
   view: z.enum(PAYMENT_QUEUE_VIEWS).default('due'),
   search: z.string().trim().max(100).optional(),
+  /** A project's id, or "none" for vouchers without a project. */
+  projectId: z.union([z.uuid(), z.literal('none')]).optional(),
 });
 
 export interface PaymentQueueItem extends VoucherSummary, VoucherMoney {
@@ -124,6 +126,8 @@ export const reportQuerySchema = z.object({
   /** Vouchers submitted on or before this date. */
   to: z.string().regex(ISO_DATE).optional(),
   departmentId: z.uuid().optional(),
+  /** A project's id, or "none" for vouchers without a project. */
+  projectId: z.union([z.uuid(), z.literal('none')]).optional(),
 });
 export type ReportQuery = z.infer<typeof reportQuerySchema>;
 
@@ -138,6 +142,8 @@ export interface ReportRow extends VoucherMoney {
 
 export interface ReportResponse {
   byDepartment: ReportRow[];
+  /** Every employee's claims per project; key null is "No project". */
+  byProject: (ReportRow & { code: string | null; employees: number })[];
   byEmployee: (ReportRow & { employeeCode: string | null; department: string | null })[];
   byCategory: Omit<
     ReportRow,

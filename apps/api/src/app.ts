@@ -21,6 +21,7 @@ import { systemRouter } from './system/routes.js';
 import { adminRouter } from './users/adminRoutes.js';
 import { advanceSettingsRouter, advancesRouter } from './advances/routes.js';
 import { categoriesRouter } from './categories/routes.js';
+import { projectsRouter } from './projects/routes.js';
 import { whatsAppRouter } from './notifications/whatsapp.js';
 import { auditRouter, exportsRouter, voucherZipRouter } from './documents/routes.js';
 import {
@@ -107,6 +108,7 @@ export function createApp(options: AppOptions) {
     api.use('/auth', authRouter(services));
     api.use('/admin', adminRouter(services));
     api.use('/categories', categoriesRouter(services));
+    api.use('/projects', projectsRouter(services));
     api.use('/vouchers', vouchersRouter(services));
     api.use('/vouchers', voucherFollowUpRouter(services));
     api.use('/vouchers', voucherZipRouter(services));

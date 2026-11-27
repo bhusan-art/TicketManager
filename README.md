@@ -169,6 +169,9 @@ Every endpoint in later phases follows these.
 - **Org chart.** Each user can have a department and a reporting manager. The manager must hold the
   Manager role, reporting loops are refused, a manager with active reports keeps the role, and the
   last active admin can't be removed.
+- **Employment type.** Each user is _Regular_ (the default) or _Contractual_. A regular employee
+  may have no reporting manager: their claims and advances go straight to Accounts. A contractual
+  employee must have one; the admin form and the API both refuse to save one without a manager.
 
 ### Google sign-in (optional)
 
@@ -189,10 +192,11 @@ HTTPS (Google refuses private IP addresses).
 - Drafts can be incomplete. Submitting checks everything (purpose, category, date not in the future, description, amount, and for GST bills the GSTIN, invoice number and either CGST = SGST or IGST) and returns each problem with a field path like `lines.1.gstin`. The web review step runs the same check (`voucherSubmitIssues` in `packages/shared`).
 - Each line needs a bill (PDF, JPG, PNG or WEBP, up to 10 MB, checked by its content, not its name) or a reason why there is none. Bills are stored in the `files` table; removing a line or voucher removes its files.
 - Numbers like `EXP-2026-00001` are given on submit, restart each year (Indian time) and have no gaps.
-- Where a voucher goes first: employees to their reporting manager, managers and directors to Accounts, Accounts users to the Director.
+- Where a voucher goes first: employees to their reporting manager (regular employees with no manager straight to Accounts), managers and directors to Accounts, Accounts users to the Director.
 - The employee can cancel (with a reason) until Accounts starts review. Unsubmitted drafts are deleted instead.
 - Every change needs the `version` the client last read, so two tabs can't overwrite each other (409 otherwise). Submit accepts an `Idempotency-Key`.
 - Admins manage categories under **Categories**. Switch one off rather than deleting it.
+- **Projects.** Admins keep the company's projects under **Projects** (name, optional code such as `PRJ-104`). The employee picks the project a voucher was for, or leaves it as _No project_. Close a finished project instead of deleting it: old vouchers keep it, new ones can't use it, and a draft booked to a closed project must be moved before it is submitted.
 
 ## Approvals
 
@@ -211,7 +215,7 @@ HTTPS (Google refuses private IP addresses).
 - A mistaken payment is **reversed** with a reason, never deleted. The row stays, crossed out, stops counting as paid, and its UTR can be used again.
 - The employee sees every payment and its reference on their voucher.
 - **Dashboard** (Accounts, Director, Admin): claims to verify, approved but not paid, paid and claimed this month, unpaid claims by age (0–7, 8–30, 31–60, 60+ days since approval), and approved vs paid for the last six months.
-- **Reports** (Accounts, Director, Admin): spend by department, employee and category for a date range (by submission date, Indian time), plus the _Approved, not paid_ list. Each table downloads as CSV that opens cleanly in Excel.
+- **Reports** (Accounts, Director, Admin): spend by department, project (every employee's claims together, with how many people claimed), employee and category for a date range (by submission date, Indian time), plus the _Approved, not paid_ list. The Project filter narrows every table to one project or to claims with no project, and it is also on the approval, payment and Documents screens and in the ZIP manifest. Each table downloads as CSV that opens cleanly in Excel.
 - APIs: `POST /vouchers/:id/payments`, `POST /vouchers/:id/payments/:paymentId/reverse`, `GET /payments`, `GET /accounts/dashboard`, `GET /reports`, `GET /reports/liability`.
 
 ## Advances and settlement
