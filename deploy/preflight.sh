@@ -108,12 +108,23 @@ fi
 if command -v ss >/dev/null; then
   for port in 80 443; do
     owner=$(ss -Hltnp "sport = :$port" 2>/dev/null | head -n 1)
+    # Without sudo, ss can't name the program, so ask Docker whether it is TicketManager's web.
+    published=""
+    if $running; then
+      published=$( (docker compose port web 80 2>/dev/null; docker compose port web 443 2>/dev/null) |
+        grep -c ":$port$" || true)
+    fi
+    program=$(grep -o 'users:(("[^"]*' <<<"$owner" | cut -d'"' -f2)
     if [[ -z "$owner" ]]; then
       $running && warn "nothing listens on port $port" || ok "port $port is free"
-    elif [[ "$owner" == *docker* ]]; then
-      ok "port $port is served by Docker"
+    elif [[ "${published:-0}" -gt 0 ]]; then
+      ok "port $port is served by TicketManager"
+    elif [[ "$program" == docker* ]]; then
+      warn "port $port is held by another Docker container (docker ps shows which)"
+    elif [[ -n "$program" ]]; then
+      fail "port $port is taken by another program: $program"
     else
-      fail "port $port is taken by another program: $(grep -o 'users:(("[^"]*' <<<"$owner" | cut -d'"' -f2)"
+      fail "port $port is taken by another program (sudo ss -ltnp shows which)"
     fi
   done
 fi
