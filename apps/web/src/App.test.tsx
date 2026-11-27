@@ -35,7 +35,7 @@ describe('signing in', () => {
     await userEvent.click(screen.getByLabelText('Keep me signed in'));
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
-    expect(await screen.findByText(/, Rahul$/)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /, Rahul$/ })).toBeInTheDocument();
     expect(calls.find((c) => c.key === 'POST /auth/login')!.body).toEqual({
       email: 'rahul@company.com',
       password: 'Expense#2026',

@@ -1,17 +1,130 @@
 :root {
-  --primary: #0b7f5b;
-  --primary-dark: #086548;
-  --primary-soft: #e7f4ef;
-  --text: #111827;
-  --muted: #6b7280;
-  --border: #e5e7eb;
-  --bg: #f7f8fa;
+  /* Light theme (the default unless the system or the toggle asks for dark). */
+  color-scheme: light;
+  --primary: #059669;
+  --primary-dark: #047857;
+  --primary-soft: #e2f6ee;
+  --primary-soft-hover: #d0f0e2;
+  --primary-softer: #f2fbf7;
+  --primary-border: #a7e3cc;
+  --accent: #0891b2;
+  --accent-2: #7c3aed;
+  --on-primary: #ffffff;
+  --text: #0b1324;
+  --muted: #5b6780;
+  --border: #e1e7f0;
+  --bg: #eef2f8;
   --surface: #ffffff;
-  --danger: #c0392b;
-  --danger-soft: #fdecea;
+  --surface-2: #f5f7fb;
+  --glass: rgb(255 255 255 / 0.78);
+  --glass-strong: rgb(255 255 255 / 0.92);
+  --danger: #dc2626;
+  --danger-soft: #fdecec;
+  --danger-softer: #fff7f7;
+  --danger-border: #f5c2c2;
+  --warn: #b45309;
+  --warn-strong: #f59e0b;
+  --warn-soft: #fff3dc;
+  --warn-softer: #fffaf0;
+  --warn-border: #f6d79a;
+  --quiet: #c3cad6;
+  --violet-soft: #f0ecff;
+  --violet-border: #dcd3ff;
+  --blue-soft: #e8f1fd;
+  --blue-border: #cbdff8;
+  --amber-soft: #fdf1dc;
+  --amber-border: #f3dcb0;
+  --rose-soft: #fdecf3;
+  --rose-border: #f6cfe0;
+  --grad: linear-gradient(135deg, #059669 0%, #0891b2 60%, #4f46e5 100%);
+  --grad-text: linear-gradient(90deg, #059669, #0891b2 50%, #7c3aed);
+  --grad-soft: linear-gradient(
+    135deg,
+    rgb(16 185 129 / 0.14),
+    rgb(6 182 212 / 0.1) 55%,
+    rgb(124 58 237 / 0.1)
+  );
+  --page-glow:
+    radial-gradient(900px 520px at -5% -10%, rgb(16 185 129 / 0.16), transparent 60%),
+    radial-gradient(800px 480px at 105% -5%, rgb(124 58 237 / 0.12), transparent 60%),
+    radial-gradient(900px 600px at 50% 115%, rgb(6 182 212 / 0.12), transparent 60%);
+  --shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 10px 30px -14px rgb(15 23 42 / 0.18);
+  --shadow-lg: 0 18px 48px -16px rgb(15 23 42 / 0.28);
+  --glow: 0 0 0 1px rgb(5 150 105 / 0.08), 0 10px 30px -12px rgb(5 150 105 / 0.35);
+  --grid-line: #e7ecf3;
+  /* Chart series, in this order (checked for colour-blind separation). */
+  --c1: #0d9f6e;
+  --c2: #7c3aed;
+  --c3: #d97706;
+  --c4: #2563eb;
+  --c5: #db2777;
+  --c6: #0891b2;
   font-family: 'Inter Variable', 'Inter', system-ui, sans-serif;
   color: var(--text);
   background: var(--bg);
+}
+
+/* Dark theme. public/theme.js sets data-theme before the page draws: the saved choice, or the
+   system's preference when nothing was chosen. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --primary: #34d399;
+  --primary-dark: #10b981;
+  --primary-soft: rgb(52 211 153 / 0.14);
+  --primary-soft-hover: rgb(52 211 153 / 0.22);
+  --primary-softer: rgb(52 211 153 / 0.06);
+  --primary-border: rgb(52 211 153 / 0.38);
+  --accent: #22d3ee;
+  --accent-2: #a78bfa;
+  --on-primary: #03170f;
+  --text: #e8eef9;
+  --muted: #8f9cb6;
+  --border: rgb(148 163 184 / 0.16);
+  --bg: #050912;
+  --surface: #0d1424;
+  --surface-2: #121b30;
+  --glass: rgb(14 21 38 / 0.7);
+  --glass-strong: rgb(12 18 33 / 0.9);
+  --danger: #f87171;
+  --danger-soft: rgb(248 113 113 / 0.15);
+  --danger-softer: rgb(248 113 113 / 0.06);
+  --danger-border: rgb(248 113 113 / 0.38);
+  --warn: #fbbf24;
+  --warn-strong: #f59e0b;
+  --warn-soft: rgb(251 191 36 / 0.15);
+  --warn-softer: rgb(251 191 36 / 0.07);
+  --warn-border: rgb(251 191 36 / 0.36);
+  --quiet: #475569;
+  --violet-soft: rgb(167 139 250 / 0.15);
+  --violet-border: rgb(167 139 250 / 0.38);
+  --blue-soft: rgb(96 165 250 / 0.15);
+  --blue-border: rgb(96 165 250 / 0.38);
+  --amber-soft: rgb(251 191 36 / 0.13);
+  --amber-border: rgb(251 191 36 / 0.36);
+  --rose-soft: rgb(244 114 182 / 0.14);
+  --rose-border: rgb(244 114 182 / 0.36);
+  --grad: linear-gradient(135deg, #34d399 0%, #22d3ee 55%, #818cf8 100%);
+  --grad-text: linear-gradient(90deg, #34d399, #22d3ee 50%, #a78bfa);
+  --grad-soft: linear-gradient(
+    135deg,
+    rgb(52 211 153 / 0.16),
+    rgb(34 211 238 / 0.08) 55%,
+    rgb(167 139 250 / 0.14)
+  );
+  --page-glow:
+    radial-gradient(900px 560px at -8% -12%, rgb(16 185 129 / 0.22), transparent 60%),
+    radial-gradient(820px 520px at 108% -8%, rgb(139 92 246 / 0.24), transparent 60%),
+    radial-gradient(1000px 640px at 50% 120%, rgb(6 182 212 / 0.16), transparent 60%);
+  --shadow: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 18px 40px -20px rgb(0 0 0 / 0.8);
+  --shadow-lg: 0 24px 60px -18px rgb(0 0 0 / 0.85);
+  --glow: 0 0 0 1px rgb(52 211 153 / 0.25), 0 0 32px -6px rgb(52 211 153 / 0.45);
+  --grid-line: rgb(148 163 184 / 0.12);
+  --c1: #10b981;
+  --c2: #8b5cf6;
+  --c3: #d4820a;
+  --c4: #3b82f6;
+  --c5: #ec4899;
+  --c6: #0aa5c0;
 }
 
 * {
@@ -117,7 +230,7 @@ h2 {
   height: 32px;
   border-radius: 50%;
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   font-size: 0.75rem;
   font-weight: 600;
 }
@@ -206,7 +319,7 @@ h2 {
 
 .btn-primary {
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -417,8 +530,8 @@ a {
 }
 
 .auth-brand {
-  background: linear-gradient(160deg, var(--primary) 0%, #075a40 100%);
-  color: #fff;
+  background: var(--grad);
+  color: var(--on-primary);
   padding: 2.5rem;
   display: flex;
   flex-direction: column;
@@ -433,7 +546,7 @@ a {
 }
 
 .brand-light {
-  color: #fff;
+  color: var(--on-primary);
 }
 
 .brand-light img {
@@ -489,7 +602,7 @@ a {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 8%);
+  box-shadow: var(--shadow-lg);
   min-width: 220px;
   padding: 0.35rem;
   z-index: 10;
@@ -600,23 +713,23 @@ a {
 }
 
 .chip-admin {
-  background: #efedff;
-  border-color: #dcd6ff;
+  background: var(--violet-soft);
+  border-color: var(--violet-border);
 }
 
 .chip-manager {
-  background: #e7f1fb;
-  border-color: #cfe2f6;
+  background: var(--blue-soft);
+  border-color: var(--blue-border);
 }
 
 .chip-accounts {
-  background: #f9eeda;
-  border-color: #f0dcb6;
+  background: var(--amber-soft);
+  border-color: var(--amber-border);
 }
 
 .chip-director {
-  background: #f9ece7;
-  border-color: #f0d4c8;
+  background: var(--rose-soft);
+  border-color: var(--rose-border);
 }
 
 .pill.muted-pill {
@@ -668,14 +781,14 @@ a {
 /* ---- Expenses ---- */
 
 .pill.pending {
-  background: #fff4e0;
-  color: #a35c00;
+  background: var(--warn-soft);
+  color: var(--warn);
 }
 
 .btn-danger {
   background: var(--surface);
   color: var(--danger);
-  border-color: #f2c4bf;
+  border-color: var(--danger-border);
 }
 
 .btn-danger:hover:not(:disabled) {
@@ -823,7 +936,7 @@ a {
 .stepper li.current .step-dot {
   border-color: var(--primary);
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
 }
 
 .stepper li.done .step-dot {
@@ -900,9 +1013,9 @@ fieldset.line-card > legend.line-title + * {
 }
 
 .dropzone {
-  border: 2px dashed #b9d9cc;
+  border: 2px dashed var(--primary-border);
   border-radius: 10px;
-  background: #f6fbf9;
+  background: var(--primary-softer);
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
@@ -964,8 +1077,8 @@ fieldset.line-card > legend.line-title + * {
 }
 
 .issues {
-  border-color: #f2c4bf;
-  background: #fffafa;
+  border-color: var(--danger-border);
+  background: var(--danger-softer);
 }
 
 .issues ul {
@@ -1064,11 +1177,11 @@ h1.with-pill {
 }
 
 .timeline li.warn::before {
-  background: #d98a00;
+  background: var(--warn-strong);
 }
 
 .timeline li.quiet::before {
-  background: #c9ced6;
+  background: var(--quiet);
 }
 
 .event-message {
@@ -1083,8 +1196,8 @@ h1.with-pill {
 
 .event-message.queried,
 .event-message.returned {
-  border-left-color: #d98a00;
-  background: #fff8ec;
+  border-left-color: var(--warn-strong);
+  background: var(--warn-softer);
 }
 
 .event-message.rejected,
@@ -1124,24 +1237,24 @@ h1.with-pill {
 }
 
 .callout.warn {
-  border-color: #f3d59b;
-  background: #fffcf5;
+  border-color: var(--warn-border);
+  background: var(--warn-softer);
 }
 
 .callout.bad {
-  border-color: #f2c4bf;
-  background: #fffafa;
+  border-color: var(--danger-border);
+  background: var(--danger-softer);
 }
 
 .review-panel,
 .query-panel {
   margin-top: 0;
   margin-bottom: 1rem;
-  border-color: #b9d9cc;
+  border-color: var(--primary-border);
 }
 
 .query-panel {
-  border-color: #f3d59b;
+  border-color: var(--warn-border);
 }
 
 .review-panel .table td {
@@ -1246,7 +1359,7 @@ h1.with-pill {
 
 .card.stat.warn strong,
 .owed {
-  color: #a35c00;
+  color: var(--warn);
 }
 
 .money-row {
@@ -1320,7 +1433,7 @@ tr.reversed td.num {
 
 .swatch.approved,
 .bar.approved {
-  background: #9fd3c1;
+  background: var(--c2);
 }
 
 .swatch.paid,
@@ -1391,7 +1504,7 @@ tr.reversed td.num {
 }
 
 .aging li.old .aging-track span {
-  background: #e19b2c;
+  background: var(--warn-strong);
 }
 
 .nowrap {
@@ -1442,7 +1555,7 @@ tr.reversed td.num {
   padding: 0 4px;
   border-radius: 999px;
   background: var(--danger);
-  color: #fff;
+  color: var(--on-primary);
   font-size: 0.68rem;
   font-weight: 600;
   line-height: 18px;
@@ -1455,7 +1568,7 @@ tr.reversed td.num {
   padding: 0 6px;
   border-radius: 999px;
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   font-size: 0.72rem;
   font-weight: 600;
   line-height: 20px;
@@ -1502,7 +1615,7 @@ tr.reversed td.num {
 }
 
 .notification-list .unread .notification:hover {
-  background: #dcefe7;
+  background: var(--primary-soft-hover);
 }
 
 .notification-icon {
@@ -1635,7 +1748,7 @@ tr.reversed td.num {
 }
 
 .audit-detail td {
-  background: #f9fafb;
+  background: var(--surface-2);
 }
 
 .audit-diff {
@@ -1651,7 +1764,7 @@ tr.reversed td.num {
   max-height: 18rem;
   overflow: auto;
   font-size: 0.75rem;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
   white-space: pre-wrap;
@@ -1677,7 +1790,7 @@ tr.reversed td.num {
 .whatsapp-text {
   margin: 0.4rem 0 0;
   padding: 0.5rem 0.75rem;
-  background: #ecfdf3;
+  background: var(--primary-softer);
   border-radius: 8px;
   font-size: 0.85rem;
   white-space: pre-wrap;
@@ -1698,8 +1811,8 @@ tr.reversed td.num {
   margin: 0 0 1rem;
   padding: 0.6rem 0.9rem;
   border-radius: 8px;
-  background: #fff7e6;
-  color: #8a5a00;
+  background: var(--warn-softer);
+  color: var(--warn);
   font-size: 0.9rem;
 }
 

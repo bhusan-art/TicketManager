@@ -2,7 +2,7 @@
 // TicketManager service worker: lets the installed app open quickly and show its screens when
 // the network drops. It never stores API answers, so no claim, bill or personal data is kept
 // on the phone; those always come fresh from the server.
-const SHELL = 'tm-shell-v1';
+const SHELL = 'tm-shell-v2';
 const ASSETS = 'tm-assets-v1';
 const KEEP_ASSETS = 80;
 
@@ -10,7 +10,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(SHELL)
-      .then((cache) => cache.addAll(['/', '/manifest.webmanifest', '/favicon.svg']))
+      .then((cache) => cache.addAll(['/', '/manifest.webmanifest', '/favicon.svg', '/theme.js']))
       .then(() => self.skipWaiting()),
   );
 });
