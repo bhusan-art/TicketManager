@@ -71,11 +71,18 @@ public DNS, or in your router's or office DNS.
 sudo mkdir -p /opt/ticketmanager && sudo chown $USER /opt/ticketmanager
 git clone https://github.com/bhusan-art/TicketManager.git /opt/ticketmanager
 cd /opt/ticketmanager
-cp .env.example .env
-nano .env
+./deploy/setup.sh
 ```
 
-Change these. The API refuses to start over HTTPS while the example secrets are still there.
+The setup script asks for the domain, your email and the mailbox that sends email (Gmail,
+Microsoft 365, another SMTP server, or none for now). It generates the database password, the
+sign-in secret and a first admin password, and writes `.env` readable only by you. **Write
+down the admin password it prints.** Running it again later keeps the database password and
+sign-in secret and offers your current answers as the defaults; the old file is saved as
+`.env.backup-<time>`.
+
+These are the settings it fills in, if you'd rather edit `.env` by hand (`cp .env.example .env`).
+The API refuses to start over HTTPS while the example secrets are still there.
 
 | Setting                    | Value                                                                                                 |
 | -------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -89,7 +96,7 @@ Change these. The API refuses to start over HTTPS while the example secrets are 
 | `GOOGLE_CLIENT_*`          | Optional; see the README section on Google sign-in                                                    |
 | `TZ`, `BACKUP_*`           | When backups run and how long they are kept (defaults: 02:30 IST, 14 days)                            |
 
-`chmod 600 .env` so only you can read it.
+If you edit it by hand, `chmod 600 .env` so only you can read it.
 
 ## 5. Get a certificate
 
@@ -126,16 +133,23 @@ Certbot renews both kinds by itself (a systemd timer) and runs the hook each tim
 **D. Just trying it out:** `./deploy/self-signed-cert.sh expenses.yourcompany.com`. Browsers
 warn, and Google sign-in won't work with it.
 
-## 6. Start
+## 6. Check, then start
 
 ```bash
 cd /opt/ticketmanager
+./deploy/preflight.sh
 docker compose up -d --build
-docker compose ps
+./deploy/preflight.sh
 ```
 
-All services should say `healthy` after a minute or two (the first build takes several
-minutes). Open `https://expenses.yourcompany.com`:
+`preflight.sh` changes nothing. It prints OK, WARN or FAIL for each check: Docker version,
+`.env` (no example secrets, `https` address, ports 80/443, a real mailbox), the domain pointing
+at this machine, ports 80 and 443 free, the certificate (matches its key, is for your domain,
+not expiring within 14 days, not self-signed), free disk and the latest backup. Once the app
+runs it also checks that every service is healthy, that `/api/v1/health` answers over HTTPS and
+that plain HTTP redirects. Fix every FAIL before people start using it.
+
+The first build takes several minutes. Then open `https://expenses.yourcompany.com`:
 
 1. Sign in with `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD`.
 2. Change your password under **Profile**, then delete `BOOTSTRAP_ADMIN_PASSWORD` from `.env`.
@@ -207,7 +221,7 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Database changes apply themselves when the API starts. If something goes wrong, go back:
+Then run `./deploy/preflight.sh`. Database changes apply themselves when the API starts. If something goes wrong, go back:
 `git checkout <previous commit>`, `docker compose up -d --build`, and restore the backup you
 just took.
 
@@ -235,6 +249,8 @@ The API and worker log one JSON line per event, nginx one JSON line per request 
 - The API refuses to start over HTTPS with the example secrets from `.env.example`.
 
 ## Troubleshooting
+
+Start with `./deploy/preflight.sh`: it names most problems and what to do about them.
 
 | Problem                                                             | Fix                                                                                                           |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
