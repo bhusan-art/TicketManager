@@ -35,6 +35,7 @@ import { paymentQueueRouter, voucherPaymentsRouter } from './payments/routes.js'
 import { accountsRouter, reportsRouter } from './reports/routes.js';
 import { approvalsRouter, voucherReviewRouter } from './vouchers/reviewRoutes.js';
 import { vouchersRouter } from './vouchers/routes.js';
+import { searchRouter } from './search/routes.js';
 
 export interface AppOptions {
   logger: Logger;
@@ -123,6 +124,7 @@ export function createApp(options: AppOptions) {
     api.use('/admin/settings/advances', advanceSettingsRouter(services));
     api.use('/advances', advanceFollowUpRouter(services));
     api.use('/advances', whatsAppRouter('advance', services));
+    api.use('/search', searchRouter(services));
     api.use('/notifications', notificationsRouter(services));
     api.use('/admin/emails', emailLogRouter(services));
     api.use(

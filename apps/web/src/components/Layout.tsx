@@ -14,6 +14,7 @@ import {
   Mail,
   Menu,
   Receipt,
+  Search,
   Scale,
   Settings,
   Tags,
@@ -30,6 +31,7 @@ import { useUnreadCount } from '../lib/notifications';
 import { useInstallPrompt } from '../lib/install';
 import { useOnline, usePhone } from '../lib/media';
 import { initials } from '../lib/initials';
+import { GlobalSearch } from './GlobalSearch';
 import { ThemeToggle } from './ThemeToggle';
 import { useTableLabels } from '../lib/tableLabels';
 
@@ -154,6 +156,7 @@ export function Layout() {
     .filter((item): item is NavItem => Boolean(item));
   const unread = useUnreadCount();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const phone = usePhone();
   const online = useOnline();
   const main = useRef<HTMLElement>(null);
@@ -234,14 +237,19 @@ export function Layout() {
           <Link to="/" className="mobile-only topbar-brand" aria-label="TicketManager home">
             <img src="/favicon.svg" alt="" width={26} height={26} />
           </Link>
-          <input
-            className="search"
-            type="search"
-            placeholder="Search…"
-            aria-label="Search"
-            disabled
-          />
+          {!phone && <GlobalSearch pages={nav} />}
           <div className="topbar-actions">
+            {phone && (
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Search"
+                aria-expanded={searchOpen}
+                onClick={() => setSearchOpen((o) => !o)}
+              >
+                <Search size={20} aria-hidden />
+              </button>
+            )}
             <ThemeToggle />
             <Link
               to="/notifications"
@@ -255,6 +263,11 @@ export function Layout() {
             <UserMenu />
           </div>
         </header>
+        {phone && searchOpen && (
+          <div className="phone-search">
+            <GlobalSearch pages={nav} autoFocus onDone={() => setSearchOpen(false)} />
+          </div>
+        )}
         <main className="content" ref={main}>
           {!online && (
             <div className="offline-banner" role="status">
