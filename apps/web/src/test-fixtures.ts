@@ -73,6 +73,7 @@ export const voucher = (over: Partial<VoucherDetail> = {}): VoucherDetail => ({
   waitingOn: 'Employee',
   events: [],
   advance: null,
+  enteredBy: null,
   payments: [],
   paidPaise: 0,
   outstandingPaise: 0,

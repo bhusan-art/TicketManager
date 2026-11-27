@@ -26,6 +26,7 @@ import {
 
 const employees = alias(users, 'employee');
 const voucherManagers = alias(users, 'voucher_manager');
+const enteredBy = alias(users, 'entered_by');
 const homeDepartments = alias(departments, 'home_department');
 
 const ref = (id: string | null, name: string | null) => (id && name ? { id, name } : null);
@@ -103,9 +104,11 @@ export async function getVoucherDetail(
       managerName: voucherManagers.name,
       projectName: projects.name,
       projectCode: projects.code,
+      enteredByName: enteredBy.name,
     })
     .from(vouchers)
     .innerJoin(employees, eq(employees.id, vouchers.employeeId))
+    .leftJoin(enteredBy, eq(enteredBy.id, vouchers.enteredById))
     .leftJoin(departments, eq(departments.id, vouchers.departmentId))
     .leftJoin(homeDepartments, eq(homeDepartments.id, employees.departmentId))
     .leftJoin(voucherManagers, eq(voucherManagers.id, vouchers.managerId))
@@ -153,6 +156,7 @@ export async function getVoucherDetail(
     outstandingPaise: voucherMoney(v).outstandingPaise,
     paidAt: v.paidAt?.toISOString() ?? null,
     advance: v.advanceId ? await getAdvanceRef(db, v.advanceId) : null,
+    enteredBy: ref(v.enteredById, row.enteredByName),
     can: permissions(auth, v),
   };
 }
@@ -183,6 +187,7 @@ export const voucherSummaryColumns = {
   categories: sql<string[]>`(select coalesce(array_agg(distinct c.name order by c.name), '{}')
     from voucher_lines l join categories c on c.id = l.category_id
     where l.voucher_id = "vouchers"."id")`,
+  employeeName: sql<string>`(select u.name from users u where u.id = "vouchers"."employee_id")`,
   projectId: vouchers.projectId,
   projectName: sql<string | null>`(select case when p.code is null then p.name
     else p.code || ' · ' || p.name end from projects p where p.id = "vouchers"."project_id")`,
@@ -194,7 +199,11 @@ export function selectVoucherSummaries(db: DbOrTx) {
 
 type SummaryRow = Awaited<ReturnType<ReturnType<typeof selectVoucherSummaries>['execute']>>[number];
 
-export function toVoucherSummary({ projectId, projectName, ...row }: SummaryRow): VoucherSummary {
+export function toVoucherSummary({
+  projectId,
+  projectName,
+  ...row
+}: Omit<SummaryRow, 'employeeName'> & { employeeName?: string }): VoucherSummary {
   return {
     ...row,
     project: projectId && projectName ? { id: projectId, name: projectName } : null,

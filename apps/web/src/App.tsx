@@ -21,6 +21,7 @@ import { Reports } from './pages/reports/Reports';
 import { MyExpenses } from './pages/expenses/MyExpenses';
 import { VoucherDetails } from './pages/expenses/VoucherDetails';
 import { VoucherForm } from './pages/expenses/VoucherForm';
+import { PaperClaims } from './pages/paper/PaperClaims';
 import { ForgotPassword } from './pages/ForgotPassword';
 import { Login } from './pages/Login';
 import { Placeholder } from './pages/Placeholder';
@@ -74,6 +75,22 @@ export function App() {
             }
           />
           <Route path="payments/:id" element={<VoucherDetails />} />
+          <Route
+            path="paper-claims"
+            element={
+              <RequireRole roles={['accounts']}>
+                <PaperClaims />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="paper-claims/new"
+            element={
+              <RequireRole roles={['accounts']}>
+                <VoucherForm key="paper" paper />
+              </RequireRole>
+            }
+          />
           <Route
             path="reports"
             element={

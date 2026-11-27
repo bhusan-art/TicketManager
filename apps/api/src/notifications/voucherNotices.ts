@@ -98,6 +98,16 @@ export async function notifyVoucherEvent(db: DbOrTx, e: NewVoucherEvent, eventId
         },
         await reviewers(v.approvalStatus),
       );
+      // A paper claim typed in by Accounts: tell the employee it is now in the app.
+      if (e.type === 'submitted' && v.enteredById && v.enteredById !== v.employeeId) {
+        await send(
+          {
+            title: `${num} was entered from your paper claim`,
+            body: `${actor} typed in your paper claim of ${total}${purpose}. You can follow it here.`,
+          },
+          [owner],
+        );
+      }
       return;
     }
     case 'review_started':

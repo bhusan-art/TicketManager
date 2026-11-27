@@ -26,6 +26,8 @@ export interface WorkflowVoucher {
   paidPaise?: number;
   /** Tagged to an advance: settled there, never paid on its own. */
   advanceId?: string | null;
+  /** The Accounts user who typed it in from a paper claim. */
+  enteredById?: string | null;
 }
 
 type Caller = Pick<AuthContext, 'userId' | 'activeRole'>;
@@ -39,6 +41,7 @@ export const EDITABLE_STATUSES: readonly ApprovalStatus[] = ['draft', 'returned'
  */
 export function canView(caller: Caller, v: WorkflowVoucher): boolean {
   if (v.employeeId === caller.userId) return true;
+  if (enteredByCaller(caller, v)) return true;
   if (v.managerId === caller.userId) return true;
   if (!v.submittedAt) return false;
   return caller.activeRole === 'accounts' || caller.activeRole === 'director';
@@ -58,15 +61,28 @@ export function isApprover(caller: Caller, v: WorkflowVoucher): boolean {
   return true;
 }
 
+/** Accounts working on a paper claim they typed in for someone else. */
+function enteredByCaller(caller: Caller, v: WorkflowVoucher) {
+  return (
+    !!v.enteredById &&
+    v.enteredById === caller.userId &&
+    v.employeeId !== caller.userId &&
+    caller.activeRole === 'accounts'
+  );
+}
+
 export function permissions(caller: Caller, v: WorkflowVoucher): VoucherPermissions {
   const owner = v.employeeId === caller.userId;
-  const editable = owner && EDITABLE_STATUSES.includes(v.approvalStatus);
+  // Whoever typed in a paper claim finishes the draft and sends it; after that it is the
+  // employee's like any other claim (a returned claim goes back to them).
+  const keyer = enteredByCaller(caller, v) && v.approvalStatus === 'draft';
+  const editable = (owner && EDITABLE_STATUSES.includes(v.approvalStatus)) || keyer;
   const approver = isApprover(caller, v);
   return {
     edit: editable,
     submit: editable,
     cancel: owner && CANCELLABLE_STATUSES.includes(v.approvalStatus) && !v.accountsReviewStartedAt,
-    delete: owner && v.approvalStatus === 'draft' && !v.number,
+    delete: (owner || keyer) && v.approvalStatus === 'draft' && !v.number,
     approve: approver,
     query: approver,
     return: approver,
