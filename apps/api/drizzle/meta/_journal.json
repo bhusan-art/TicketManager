@@ -85,6 +85,13 @@
       "when": 1795760370405,
       "tag": "0011_session_remember",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795777404378,
+      "tag": "0012_claim_chat",
+      "breakpoints": true
     }
   ]
 }

@@ -15,3 +15,4 @@ export * from './documents.js';
 export * from './whatsapp.js';
 export * from './system.js';
 export * from './projects.js';
+export * from './chat.js';

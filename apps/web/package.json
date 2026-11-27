@@ -11,6 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@chatscope/chat-ui-kit-react": "^2.1.1",
+    "@chatscope/chat-ui-kit-styles": "^1.4.0",
     "@fontsource-variable/inter": "^5.2.0",
     "@ticketmanager/shared": "*",
     "lucide-react": "^1.0.0",

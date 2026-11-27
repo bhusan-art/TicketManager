@@ -8,6 +8,7 @@ import { AnswerPanel } from '../../components/voucher/AnswerPanel';
 import { PaymentPanel } from '../../components/voucher/PaymentPanel';
 import { ReviewPanel } from '../../components/voucher/ReviewPanel';
 import { Timeline } from '../../components/voucher/Timeline';
+import { ClaimChat } from '../../components/ClaimChat';
 import { FollowUp } from '../../components/FollowUp';
 import { WhatsAppSend } from '../../components/WhatsAppSend';
 import {
@@ -318,6 +319,8 @@ export function VoucherDetails() {
         </div>
         <Timeline voucher={v} onChange={setVoucher} />
       </div>
+
+      {v.submittedAt && <ClaimChat key={v.id} path={`/vouchers/${v.id}`} />}
 
       <div className="card wide table-card">
         <table className="table">

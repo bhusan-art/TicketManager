@@ -529,6 +529,30 @@ export const advanceEvents = pgTable(
   (t) => [index('advance_events_advance_idx').on(t.advanceId, t.id)],
 );
 
+/**
+ * The chat on a claim or advance between the employee and whoever reviews or pays it. Each row
+ * belongs to exactly one voucher or one advance.
+ */
+export const chatMessages = pgTable(
+  'chat_messages',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    voucherId: uuid('voucher_id').references(() => vouchers.id, { onDelete: 'cascade' }),
+    advanceId: uuid('advance_id').references(() => advances.id, { onDelete: 'cascade' }),
+    authorId: uuid('author_id')
+      .notNull()
+      .references(() => users.id),
+    authorRole: text('author_role', { enum: ROLES }).notNull(),
+    body: text('body').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('chat_messages_voucher_idx').on(t.voucherId, t.id),
+    index('chat_messages_advance_idx').on(t.advanceId, t.id),
+    check('chat_messages_one_parent', sql`(${t.voucherId} is null) <> (${t.advanceId} is null)`),
+  ],
+);
+
 /** Company-wide settings, one JSON value per key. */
 export const settings = pgTable('settings', {
   key: text('key').primaryKey(),
